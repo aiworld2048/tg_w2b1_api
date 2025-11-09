@@ -29,7 +29,7 @@ class PlayTechLiveCasinoGameSeeder extends Seeder
                         'image_url' => $game['image_url'],
                         'provider_product_id' => $game['product_id'],
                         'game_type_id' => 2,
-                        'product_id' => 4,
+                        'product_id' => 20,
                         'product_code' => $game['product_code'],
                         'support_currency' => $game['support_currency'],
                         'status' => $game['status'],

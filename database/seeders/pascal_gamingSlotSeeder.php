@@ -29,7 +29,7 @@ class pascal_gamingSlotSeeder extends Seeder
                         'image_url' => $game['image_url'],
                         'provider_product_id' => $game['product_id'],
                         'game_type_id' => 1,
-                        'product_id' => 68,
+                        'product_id' => 62,
                         'product_code' => $game['product_code'],
                         'support_currency' => $game['support_currency'],
                         'status' => $game['status'],

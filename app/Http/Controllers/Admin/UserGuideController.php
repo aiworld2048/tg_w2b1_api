@@ -25,4 +25,3 @@ class UserGuideController extends Controller
         ]);
     }
 }
-

@@ -29,7 +29,7 @@ class SabaSportBookGameSeeder extends Seeder
                         'image_url' => $game['image_url'],
                         'provider_product_id' => $game['product_id'],
                         'game_type_id' => 3,
-                        'product_id' => 19,
+                        'product_id' => 31,
                         'product_code' => $game['product_code'],
                         'support_currency' => $game['support_currency'],
                         'status' => $game['status'],
