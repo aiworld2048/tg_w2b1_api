@@ -86,10 +86,10 @@ class UsersTableSeeder extends Seeder
     {
         // Find first agent to assign this player to
         $agent = User::where('type', UserType::Agent->value)
-                    ->where('agent_id', $ownerId)
-                    ->first();
+            ->where('agent_id', $ownerId)
+            ->first();
 
-        if (!$agent) {
+        if (! $agent) {
             throw new \Exception('No agent found to assign SKP0101 player to');
         }
 

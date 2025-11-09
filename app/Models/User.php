@@ -10,9 +10,7 @@ use App\Models\Admin\BannerAds;
 use App\Models\Admin\BannerText;
 use App\Models\Admin\Permission;
 use App\Models\Admin\Promotion;
-
 use App\Models\Admin\Role;
-
 use App\Models\PlaceBet;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -25,7 +23,9 @@ class User extends Authenticatable
     use HasApiTokens, HasFactory, Notifiable;
 
     private const PLAYER_ROLE = 3;
+
     private const AGENT_ROLE = 2;
+
     private const OWNER_ROLE = 1;
 
     /**

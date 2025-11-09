@@ -15,7 +15,7 @@ class BuffaloReportController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
-        
+
         // Get filter parameters - default to today's data
         $fromDate = $request->input('from_date', now()->format('Y-m-d'));
         $toDate = $request->input('to_date', now()->format('Y-m-d'));
@@ -25,7 +25,7 @@ class BuffaloReportController extends Controller
 
         // Base query
         $query = LogBuffaloBet::with(['player', 'agent'])
-            ->whereBetween('created_at', [$fromDate . ' 00:00:00', $toDate . ' 23:59:59']);
+            ->whereBetween('created_at', [$fromDate.' 00:00:00', $toDate.' 23:59:59']);
 
         // Role-based filtering
         if ($user->type == UserType::Owner || $user->type == UserType::Master) {
@@ -40,7 +40,7 @@ class BuffaloReportController extends Controller
             // Agent can see their own players only
             $playerIds = $user->getAllDescendantPlayers()->pluck('id')->toArray();
             $query->whereIn('player_id', $playerIds);
-            
+
             if ($playerId && in_array($playerId, $playerIds)) {
                 $query->where('player_id', $playerId);
             }
@@ -48,7 +48,7 @@ class BuffaloReportController extends Controller
             // SubAgent can see their own players only
             $playerIds = $user->children()->where('type', UserType::Player)->pluck('id')->toArray();
             $query->whereIn('player_id', $playerIds);
-            
+
             if ($playerId && in_array($playerId, $playerIds)) {
                 $query->where('player_id', $playerId);
             }
@@ -125,6 +125,7 @@ class BuffaloReportController extends Controller
         // Attach agent details
         $reports->getCollection()->transform(function ($report) {
             $report->agent = User::find($report->player_agent_id);
+
             return $report;
         });
 
@@ -152,6 +153,7 @@ class BuffaloReportController extends Controller
         $reports->getCollection()->transform(function ($report) {
             $report->player = User::find($report->player_id);
             $report->agent = User::find($report->player_agent_id);
+
             return $report;
         });
 
@@ -165,38 +167,38 @@ class BuffaloReportController extends Controller
     {
         $user = Auth::user();
         $type = $request->input('type', 'player'); // 'agent' or 'player'
-        
+
         // Default to today's data
         $fromDate = $request->input('from_date', now()->format('Y-m-d'));
         $toDate = $request->input('to_date', now()->format('Y-m-d'));
 
         // Base query
         $query = LogBuffaloBet::with(['player', 'agent'])
-            ->whereBetween('created_at', [$fromDate . ' 00:00:00', $toDate . ' 23:59:59']);
+            ->whereBetween('created_at', [$fromDate.' 00:00:00', $toDate.' 23:59:59']);
 
         if ($type === 'agent') {
             // Show all players under this agent
             $query->where('player_agent_id', $id);
             $targetUser = User::findOrFail($id);
-            
+
             // Check permission
-            if (!in_array($user->type->value, [UserType::Owner->value, UserType::Master->value])) {
+            if (! in_array($user->type->value, [UserType::Owner->value, UserType::Master->value])) {
                 abort(403, 'Unauthorized access');
             }
         } else {
             // Show specific player's bets
             $query->where('player_id', $id);
             $targetUser = User::findOrFail($id);
-            
+
             // Check permission
             if ($user->type == UserType::Agent) {
                 $allowedPlayerIds = $user->getAllDescendantPlayers()->pluck('id')->toArray();
-                if (!in_array($id, $allowedPlayerIds)) {
+                if (! in_array($id, $allowedPlayerIds)) {
                     abort(403, 'Unauthorized access');
                 }
             } elseif ($user->type == UserType::SubAgent) {
                 $allowedPlayerIds = $user->children()->where('type', UserType::Player)->pluck('id')->toArray();
-                if (!in_array($id, $allowedPlayerIds)) {
+                if (! in_array($id, $allowedPlayerIds)) {
                     abort(403, 'Unauthorized access');
                 }
             }
@@ -223,4 +225,3 @@ class BuffaloReportController extends Controller
         ));
     }
 }
-

@@ -7,8 +7,6 @@ use Illuminate\Http\JsonResponse; // ✅ correct
 
 class ApiResponseService
 {
-    
-
     public static function success(mixed $data = null, string $message = 'Success')
     {
         return response()->json([
@@ -27,8 +25,6 @@ class ApiResponseService
             'data' => $data ?? [],
         ];
     }
-
-    
 
     /**
      * ✅ GPlus success format — only returns { data: [...] }

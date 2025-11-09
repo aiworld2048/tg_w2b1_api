@@ -65,8 +65,6 @@ class AgentController extends Controller
         return view('admin.agent.index', compact('users'));
     }
 
-    
-
     /**
      * Show the form for creating a new resource.
      */
@@ -329,7 +327,7 @@ class AgentController extends Controller
 
     public function getTransferDetail($id)
     {
-       
+
         $transfer_detail = TransferLog::where('from_user_id', $id)
             ->orWhere('to_user_id', $id)
             ->get();

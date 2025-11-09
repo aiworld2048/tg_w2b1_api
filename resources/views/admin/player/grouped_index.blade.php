@@ -44,7 +44,7 @@
                                     <td class="text-end">{{ number_format($agent->player_count) }}</td>
                                     <td class="text-end">{{ number_format((float) $agent->player_balance_sum, 2) }}</td>
                                     <td class="text-center">
-                                        <a href="{{ route('players.grouped.show', $agent->id) }}" class="btn btn-sm btn-primary">
+                                        <a href="{{ route('admin.players.grouped.show', $agent->id) }}" class="btn btn-sm btn-primary">
                                             View Players
                                         </a>
                                     </td>

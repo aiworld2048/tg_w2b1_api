@@ -54,4 +54,3 @@ foreach ($users as $user) {
 }
 
 exit(0);
-

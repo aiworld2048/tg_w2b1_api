@@ -19,12 +19,12 @@ return new class extends Migration
             $table->unsignedBigInteger('player_agent_id')->nullable();
             $table->string('buffalo_game_id');
             $table->timestamp('request_time')->nullable();
-            // Transaction-level 
+            // Transaction-level
             $table->decimal('bet_amount', 20, 4)->nullable();
             $table->decimal('win_amount', 20, 4)->nullable();
             $table->json('payload')->nullable();
             $table->string('game_name')->nullable();
-            $table->string('status')->default('pending'); 
+            $table->string('status')->default('pending');
             $table->decimal('before_balance', 20, 4)->nullable();
             $table->decimal('balance', 20, 4)->nullable();
 

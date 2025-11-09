@@ -25,7 +25,7 @@
                         </a>
                     </div>
                 </div>
-                <form action="{{route('admin.player.makeCashIn', $player->id)}}" method="POST">
+                <form action="{{ route('admin.agent.players.makeCashIn', $player->id) }}" method="POST">
                     @csrf
                     <div class="card-body mt-2">
                         <div class="row">

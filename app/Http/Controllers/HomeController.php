@@ -113,17 +113,18 @@ class HomeController extends Controller
 
     private function getWinLose($id, $todayOnly = false): float
     {
-        $query = DB::table('reports')
+        $query = DB::table('place_bets')
             ->select(
-                DB::raw('COALESCE(SUM(reports.bet_amount), 0) as total_bet_amount'),
-                DB::raw('COALESCE(SUM(reports.payout_amount), 0) as total_payout_amount')
+                DB::raw('COALESCE(SUM(place_bets.bet_amount), 0) as total_bet_amount'),
+                DB::raw('COALESCE(SUM(place_bets.prize_amount), 0) as total_payout_amount')
             )
-            ->where('reports.agent_id', $id);
+            ->join('users as players', 'players.user_name', '=', 'place_bets.member_account')
+            ->where('players.agent_id', $id);
 
         if ($todayOnly) {
             $start = now()->startOfDay();
             $end = now()->endOfDay();
-            $query->whereBetween('created_at', [$start, $end]);
+            $query->whereBetween('place_bets.created_at', [$start, $end]);
         }
 
         $report = $query->first();
@@ -228,5 +229,4 @@ class HomeController extends Controller
 
         return 0.0;
     }
-
 }

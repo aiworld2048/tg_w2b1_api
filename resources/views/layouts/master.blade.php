@@ -131,6 +131,7 @@
                             </a>
                         </li>
 
+                       {{--
                         @can('owner_access')
                             <li class="nav-item">
                                 <a href="{{ route('admin.playerListForAdmin') }}"
@@ -142,6 +143,8 @@
                                 </a>
                             </li>
                         @endcan
+                        --}} 
+                       
 
                         @can('agent_index')
                             <li class="nav-item">
@@ -155,9 +158,27 @@
                             </li>
                         @endcan
                         @can('view_player_list')
+                            @php
+                                $currentUser = auth()->user();
+                            $playerRouteName = 'admin.players.grouped';
+                            $playerActiveRoutes = ['admin.players.grouped', 'admin.players.grouped.show'];
+                                if ($currentUser && (int) $currentUser->type === \App\Enums\UserType::Agent->value) {
+                                $playerRouteName = 'admin.agent.players.index';
+                                    $playerActiveRoutes = [
+                                    'admin.agent.players.index',
+                                    'admin.agent.players.create',
+                                    'admin.agent.players.edit',
+                                    'admin.agent.players.logs',
+                                    'admin.agent.players.report',
+                                    'admin.agent.players.getCashIn',
+                                    'admin.agent.players.getCashOut',
+                                    'admin.agent.players.getChangePassword',
+                                    ];
+                                }
+                            @endphp
                             <li class="nav-item">
-                                <a href="{{ route('players.grouped') }}"
-                                    class="nav-link {{ in_array(Route::currentRouteName(), ['players.grouped', 'players.grouped.show']) ? 'active' : '' }}">
+                                <a href="{{ route($playerRouteName) }}"
+                                    class="nav-link {{ in_array(Route::currentRouteName(), $playerActiveRoutes, true) ? 'active' : '' }}">
                                     <i class="far fa-user"></i>
                                     <p>
                                         Player List

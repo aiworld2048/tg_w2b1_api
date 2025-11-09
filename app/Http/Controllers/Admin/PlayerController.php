@@ -27,8 +27,14 @@ class PlayerController extends Controller
      */
     public function index()
     {
-        return redirect()->route('players.grouped');
+        $currentUser = Auth::user();
+        if ($currentUser && UserType::from((int) $currentUser->type) === UserType::Agent) {
+            return redirect()->route('admin.agent.players.index');
+        }
+
+        return redirect()->route('admin.players.grouped');
     }
+
     public function groupedIndex()
     {
         $user = Auth::user();
@@ -64,7 +70,7 @@ class PlayerController extends Controller
         $currentUser = Auth::user();
         $currentType = UserType::from((int) $currentUser->type);
 
-        if ($currentType === UserType::Owner && $agent->agent_id !== $currentUser->id) {
+        if ($currentType === UserType::Owner && (int) $agent->agent_id !== (int) $currentUser->id) {
             abort(Response::HTTP_FORBIDDEN, 'Unauthorized action.');
         }
 
@@ -73,7 +79,7 @@ class PlayerController extends Controller
         }
 
         if ($agent->type !== UserType::Agent->value) {
-            abort(Response::HTTP_BAD_REQUEST, 'Agent not found.');
+            abort(Response::HTTP_FORBIDDEN, 'Unauthorized action.');
         }
 
         $players = User::where('agent_id', $agent->id)
@@ -84,6 +90,7 @@ class PlayerController extends Controller
 
         return view('admin.player.grouped_show', compact('agent', 'players'));
     }
+
     /**
      * Display a listing of the users with their agents.
      *
@@ -94,7 +101,7 @@ class PlayerController extends Controller
      */
     public function create()
     {
-        
+
         $currentUser = Auth::user();
         $currentType = UserType::from((int) $currentUser->type);
 
@@ -125,7 +132,6 @@ class PlayerController extends Controller
      */
     public function store(PlayerRequest $request)
     {
-        // Gate::allows('subagent_access');
 
         $currentUser = Auth::user();
         $currentType = UserType::from((int) $currentUser->type);

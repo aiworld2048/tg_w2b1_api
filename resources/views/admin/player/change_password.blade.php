@@ -31,7 +31,7 @@
 
                 <div class="card-body ">
                     <form role="form" method="POST" class="text-start"
-                        action="{{ route('admin.player.makeChangePassword', $player->id) }}">
+                        action="{{ route('admin.agent.players.makeChangePassword', $player->id) }}">
                         @csrf
                         <div class="col-lg-8 offset-lg-2 col-md-8 offset-md-2 col-sm-8 offset-sm-2 col-10 offset-1">
                             <div class="custom-form-group mb-3">

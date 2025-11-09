@@ -116,8 +116,11 @@ class WalletService
         $isAgentToOwner = $fromType === UserType::Agent
             && $toType === UserType::Owner
             && $from->agent_id === $to->id;
+        $isPlayerToAgent = $fromType === UserType::Player
+            && $toType === UserType::Agent
+            && $from->agent_id === $to->id;
 
-        if ($isOwnerToAgent || $isAgentToPlayer || $isSystemToOwner || $isAgentToOwner) {
+        if ($isOwnerToAgent || $isAgentToPlayer || $isSystemToOwner || $isAgentToOwner || $isPlayerToAgent) {
             return;
         }
 
@@ -164,4 +167,3 @@ class WalletService
         return number_format($amount, 2, '.', '');
     }
 }
-

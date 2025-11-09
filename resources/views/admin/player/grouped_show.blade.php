@@ -27,12 +27,12 @@
                     <p class="mb-0 small text-muted">Agent ID: {{ $agent->user_name }}</p>
                 </div>
                 <div class="d-flex gap-2">
-                    @can('create_player')
-                        <a href="{{ route('players.create', ['agent_id' => $agent->id]) }}" class="btn btn-success">
+                    @if(auth()->user() && (int) auth()->user()->type === \App\Enums\UserType::Agent->value && auth()->user()->can('create_player'))
+                        <a href="{{ route('admin.agent.players.create', ['agent_id' => $agent->id]) }}" class="btn btn-success">
                             <i class="fas fa-plus me-1"></i> Create Player
                         </a>
-                    @endcan
-                    <a href="{{ route('players.grouped') }}" class="btn btn-outline-secondary">
+                    @endif
+                        <a href="{{ route('admin.players.grouped') }}" class="btn btn-outline-secondary">
                         &larr; Back to Agents
                     </a>
                 </div>
