@@ -1,203 +1,8 @@
-[
-    {
-        "provider": "SBO",
-        "currency": "IDR2",
-        "status": "ACTIVATED",
-        "provider_id": 2,
-        "product_id": 52,
-        "product_code": 1012,
-        "product_name": "sbo",
-        "game_type": "SPORT_BOOK",
-        "product_title": "SBO"
-    },
-    {
-        "provider": "Yee Bet",
-        "currency": "IDR",
-        "status": "ACTIVATED",
-        "provider_id": 3,
-        "product_id": 9,
-        "product_code": 1016,
-        "product_name": "yee_bet",
-        "game_type": "LIVE_CASINO",
-        "product_title": "YeeBet"
-    },
-    {
-        "provider": "GMAG",
-        "currency": "IDR",
-        "status": "ACTIVATED",
-        "provider_id": 4,
-        "product_id": 11,
-        "product_code": 1011,
-        "product_name": "play_tech",
-        "game_type": "LIVE_CASINO",
-        "product_title": "PlayTech"
-    },
-    {
-        "provider": "GMAG",
-        "currency": "IDR",
-        "status": "ACTIVATED",
-        "provider_id": 4,
-        "product_id": 10,
-        "product_code": 1011,
-        "product_name": "play_tech",
-        "game_type": "SLOT",
-        "product_title": "PlayTech"
-    },
-    {
-        "provider": "Joker",
-        "currency": "IDR",
-        "status": "ACTIVATED",
-        "provider_id": 5,
-        "product_id": 183,
-        "product_code": 1225,
-        "product_name": "joker",
-        "game_type": "SLOT",
-        "product_title": "Joker"
-    },
-    {
-        "provider": "Joker",
-        "currency": "IDR",
-        "status": "ACTIVATED",
-        "provider_id": 5,
-        "product_id": 184,
-        "product_code": 1225,
-        "product_name": "joker",
-        "game_type": "OTHER",
-        "product_title": "Joker"
-    },
-    {
-        "provider": "Joker",
-        "currency": "IDR",
-        "status": "MAINTAINED",
-        "provider_id": 5,
-        "product_id": 185,
-        "product_code": 1225,
-        "product_name": "joker",
-        "game_type": "FISHING",
-        "product_title": "Joker"
-    },
-    {
-        "provider": "ALLBET",
-        "currency": "CNY",
-        "status": "ACTIVATED",
-        "provider_id": 6,
-        "product_id": 186,
-        "product_code": 1223,
-        "product_name": "allbet",
-        "game_type": "LIVE_CASINO",
-        "product_title": "ALLBET"
-    },
-    {
-        "provider": "SA Gaming",
-        "currency": "IDR",
-        "status": "ACTIVATED",
-        "provider_id": 8,
-        "product_id": 116,
-        "product_code": 1185,
-        "product_name": "sa_gaming",
-        "game_type": "LIVE_CASINO",
-        "product_title": "SA Gaming"
-    },
-    {
-        "provider": "SpadeGaming",
-        "currency": "CNY",
-        "status": "ACTIVATED",
-        "provider_id": 10,
-        "product_id": 178,
-        "product_code": 1221,
-        "product_name": "spadegaming",
-        "game_type": "SLOT",
-        "product_title": "SpadeGaming"
-    },
-    {
-        "provider": "SpadeGaming",
-        "currency": "CNY",
-        "status": "MAINTAINED",
-        "provider_id": 10,
-        "product_id": 179,
-        "product_code": 1221,
-        "product_name": "spadegaming",
-        "game_type": "FISHING",
-        "product_title": "SpadeGaming"
-    },
-    {
-        "provider": "Live22",
-        "currency": "IDR",
-        "status": "ACTIVATED",
-        "provider_id": 11,
-        "product_id": 72,
-        "product_code": 1018,
-        "product_name": "live_22",
-        "game_type": "SLOT",
-        "product_title": "Live22"
-    },
-    {
-        "provider": "WMCasino",
-        "currency": "CNY",
-        "status": "ACTIVATED",
-        "provider_id": 17,
-        "product_id": 7,
-        "product_code": 1020,
-        "product_name": "wm_casino",
-        "game_type": "LIVE_CASINO",
-        "product_title": "WMCasino"
-    },
-    {
-        "provider": "Habanero",
-        "currency": "IDR",
-        "status": "ACTIVATED",
-        "provider_id": 18,
-        "product_id": 153,
-        "product_code": 1197,
-        "product_name": "habanero",
-        "game_type": "SLOT",
-        "product_title": "Habanero"
-    },
-    {
-        "provider": "WBet",
-        "currency": "IDR2",
-        "status": "ACTIVATED",
-        "provider_id": 19,
-        "product_id": 64,
-        "product_code": 1040,
-        "product_name": "wbet",
-        "game_type": "SPORT_BOOK",
-        "product_title": "WBet"
-    },
-    {
-        "provider": "AWC",
-        "currency": "IDR",
-        "status": "ACTIVATED",
-        "provider_id": 23,
-        "product_id": 29,
-        "product_code": 1022,
-        "product_name": "sexy_gaming",
-        "game_type": "LIVE_CASINO",
-        "product_title": "SexyGaming"
-    },
-    {
-        "provider": "AWC",
-        "currency": "IDR",
-        "status": "ACTIVATED",
-        "provider_id": 23,
-        "product_id": 33,
-        "product_code": 1033,
-        "product_name": "sv388cockfighting",
-        "game_type": "COCK_FIGHTING",
-        "product_title": "SV388"
-    },
-    {
-        "provider": "IBC",
-        "currency": "IDR2",
-        "status": "ACTIVATED",
-        "provider_id": 30,
-        "product_id": 43,
-        "product_code": 1046,
-        "product_name": "saba",
-        "game_type": "SPORT_BOOK",
-        "product_title": "Saba"
-    },
-    {
+{
+    "ProviderGames": 
+    [
+    [
+        {
         "provider": "PG Soft",
         "currency": "IDR2",
         "status": "ACTIVATED",
@@ -241,115 +46,16 @@
         "game_type": "SLOT",
         "product_title": "PragmaticPlay"
     },
-    {
-        "provider": "Dream Gaming",
+        {
+        "provider": "Live22",
         "currency": "IDR",
         "status": "ACTIVATED",
-        "provider_id": 33,
-        "product_id": 51,
-        "product_code": 1052,
-        "product_name": "dream_gaming",
-        "game_type": "LIVE_CASINO",
-        "product_title": "Dream Gaming"
-    },
-    {
-        "provider": "BigGaming",
-        "currency": "IDR2",
-        "status": "ACTIVATED",
-        "provider_id": 34,
-        "product_id": 68,
-        "product_code": 1004,
-        "product_name": "big_gaming",
-        "game_type": "LIVE_CASINO",
-        "product_title": "BigGaming"
-    },
-    {
-        "provider": "BigGaming",
-        "currency": "IDR2",
-        "status": "MAINTAINED",
-        "provider_id": 34,
-        "product_id": 69,
-        "product_code": 1004,
-        "product_name": "big_gaming",
-        "game_type": "FISHING",
-        "product_title": "BigGaming"
-    },
-    {
-        "provider": "AdvantPlay",
-        "currency": "IDR",
-        "status": "ACTIVATED",
-        "provider_id": 39,
-        "product_id": 158,
-        "product_code": 1204,
-        "product_name": "advantplay",
+        "provider_id": 11,
+        "product_id": 72,
+        "product_code": 1018,
+        "product_name": "live_22",
         "game_type": "SLOT",
-        "product_title": "Advantplay"
-    },
-    {
-        "provider": "JDB",
-        "currency": "IDR",
-        "status": "ACTIVATED",
-        "provider_id": 41,
-        "product_id": 57,
-        "product_code": 1085,
-        "product_name": "jdb",
-        "game_type": "SLOT",
-        "product_title": "JDB"
-    },
-    {
-        "provider": "JDB",
-        "currency": "IDR",
-        "status": "ACTIVATED",
-        "provider_id": 41,
-        "product_id": 58,
-        "product_code": 1085,
-        "product_name": "jdb",
-        "game_type": "FISHING",
-        "product_title": "JDB"
-    },
-    {
-        "provider": "JDB",
-        "currency": "IDR",
-        "status": "ACTIVATED",
-        "provider_id": 41,
-        "product_id": 132,
-        "product_code": 1085,
-        "product_name": "jdb",
-        "game_type": "OTHER",
-        "product_title": "JDB"
-    },
-    {
-        "provider": "PlayStar",
-        "currency": "IDR",
-        "status": "ACTIVATED",
-        "provider_id": 42,
-        "product_id": 37,
-        "product_code": 1050,
-        "product_name": "playstar",
-        "game_type": "SLOT",
-        "product_title": "PlayStar"
-    },
-    {
-        "provider": "Simple Play",
-        "currency": "IDR",
-        "status": "ACTIVATED",
-        "provider_id": 45,
-        "product_id": 192,
-        "product_code": 1231,
-        "product_name": "simpleplay",
-        "game_type": "SLOT",
-        "product_title": "SIMPLEPLAY"
-    },
-    {
-        "provider": "Simple Play",
-        "currency": "IDR",
-        "status": "ACTIVATED",
-        "provider_id": 45,
-        "product_id": 193,
-        "product_code": 1231,
-        "product_name": "simpleplay",
-        "game_type": "FISHING",
-        "product_title": "SIMPLEPLAY"
+        "product_title": "Live22"
     },
     {
         "provider": "CQ9",
@@ -417,6 +123,308 @@
         "game_type": "POKER",
         "product_title": "JiLi"
     },
+    {
+        "provider": "JDB",
+        "currency": "IDR",
+        "status": "ACTIVATED",
+        "provider_id": 41,
+        "product_id": 57,
+        "product_code": 1085,
+        "product_name": "jdb",
+        "game_type": "SLOT",
+        "product_title": "JDB"
+    },
+    {
+        "provider": "JDB",
+        "currency": "IDR",
+        "status": "ACTIVATED",
+        "provider_id": 41,
+        "product_id": 58,
+        "product_code": 1085,
+        "product_name": "jdb",
+        "game_type": "FISHING",
+        "product_title": "JDB"
+    },
+    {
+        "provider": "JDB",
+        "currency": "IDR",
+        "status": "ACTIVATED",
+        "provider_id": 41,
+        "product_id": 132,
+        "product_code": 1085,
+        "product_name": "jdb",
+        "game_type": "OTHER",
+        "product_title": "JDB"
+    },
+        {
+        "provider": "Joker",
+        "currency": "IDR",
+        "status": "ACTIVATED",
+        "provider_id": 5,
+        "product_id": 183,
+        "product_code": 1225,
+        "product_name": "joker",
+        "game_type": "SLOT",
+        "product_title": "Joker"
+    },
+    {
+        "provider": "Joker",
+        "currency": "IDR",
+        "status": "ACTIVATED",
+        "provider_id": 5,
+        "product_id": 184,
+        "product_code": 1225,
+        "product_name": "joker",
+        "game_type": "OTHER",
+        "product_title": "Joker"
+    },
+    {
+        "provider": "Joker",
+        "currency": "IDR",
+        "status": "MAINTAINED",
+        "provider_id": 5,
+        "product_id": 185,
+        "product_code": 1225,
+        "product_name": "joker",
+        "game_type": "FISHING",
+        "product_title": "Joker"
+    },
+    {
+        "provider": "SBO",
+        "currency": "IDR2",
+        "status": "ACTIVATED",
+        "provider_id": 2,
+        "product_id": 52,
+        "product_code": 1012,
+        "product_name": "sbo",
+        "game_type": "SPORT_BOOK",
+        "product_title": "SBO"
+    },
+    {
+        "provider": "Yee Bet",
+        "currency": "IDR",
+        "status": "ACTIVATED",
+        "provider_id": 3,
+        "product_id": 9,
+        "product_code": 1016,
+        "product_name": "yee_bet",
+        "game_type": "LIVE_CASINO",
+        "product_title": "YeeBet"
+    },
+    {
+        "provider": "GMAG",
+        "currency": "IDR",
+        "status": "ACTIVATED",
+        "provider_id": 4,
+        "product_id": 11,
+        "product_code": 1011,
+        "product_name": "play_tech",
+        "game_type": "LIVE_CASINO",
+        "product_title": "PlayTech"
+    },
+    {
+        "provider": "GMAG",
+        "currency": "IDR",
+        "status": "ACTIVATED",
+        "provider_id": 4,
+        "product_id": 10,
+        "product_code": 1011,
+        "product_name": "play_tech",
+        "game_type": "SLOT",
+        "product_title": "PlayTech"
+    },
+    
+    {
+        "provider": "ALLBET",
+        "currency": "CNY",
+        "status": "ACTIVATED",
+        "provider_id": 6,
+        "product_id": 186,
+        "product_code": 1223,
+        "product_name": "allbet",
+        "game_type": "LIVE_CASINO",
+        "product_title": "ALLBET"
+    },
+    {
+        "provider": "SA Gaming",
+        "currency": "IDR",
+        "status": "ACTIVATED",
+        "provider_id": 8,
+        "product_id": 116,
+        "product_code": 1185,
+        "product_name": "sa_gaming",
+        "game_type": "LIVE_CASINO",
+        "product_title": "SA Gaming"
+    },
+    {
+        "provider": "SpadeGaming",
+        "currency": "CNY",
+        "status": "ACTIVATED",
+        "provider_id": 10,
+        "product_id": 178,
+        "product_code": 1221,
+        "product_name": "spadegaming",
+        "game_type": "SLOT",
+        "product_title": "SpadeGaming"
+    },
+    {
+        "provider": "SpadeGaming",
+        "currency": "CNY",
+        "status": "MAINTAINED",
+        "provider_id": 10,
+        "product_id": 179,
+        "product_code": 1221,
+        "product_name": "spadegaming",
+        "game_type": "FISHING",
+        "product_title": "SpadeGaming"
+    },
+    
+    {
+        "provider": "WMCasino",
+        "currency": "CNY",
+        "status": "ACTIVATED",
+        "provider_id": 17,
+        "product_id": 7,
+        "product_code": 1020,
+        "product_name": "wm_casino",
+        "game_type": "LIVE_CASINO",
+        "product_title": "WMCasino"
+    },
+    {
+        "provider": "Habanero",
+        "currency": "IDR",
+        "status": "ACTIVATED",
+        "provider_id": 18,
+        "product_id": 153,
+        "product_code": 1197,
+        "product_name": "habanero",
+        "game_type": "SLOT",
+        "product_title": "Habanero"
+    },
+    {
+        "provider": "WBet",
+        "currency": "IDR2",
+        "status": "ACTIVATED",
+        "provider_id": 19,
+        "product_id": 64,
+        "product_code": 1040,
+        "product_name": "wbet",
+        "game_type": "SPORT_BOOK",
+        "product_title": "WBet"
+    },
+    {
+        "provider": "AWC",
+        "currency": "IDR",
+        "status": "ACTIVATED",
+        "provider_id": 23,
+        "product_id": 29,
+        "product_code": 1022,
+        "product_name": "sexy_gaming",
+        "game_type": "LIVE_CASINO",
+        "product_title": "SexyGaming"
+    },
+    {
+        "provider": "AWC",
+        "currency": "IDR",
+        "status": "ACTIVATED",
+        "provider_id": 23,
+        "product_id": 33,
+        "product_code": 1033,
+        "product_name": "sv388cockfighting",
+        "game_type": "COCK_FIGHTING",
+        "product_title": "SV388"
+    },
+    {
+        "provider": "IBC",
+        "currency": "IDR2",
+        "status": "ACTIVATED",
+        "provider_id": 30,
+        "product_id": 43,
+        "product_code": 1046,
+        "product_name": "saba",
+        "game_type": "SPORT_BOOK",
+        "product_title": "Saba"
+    },
+    
+    {
+        "provider": "Dream Gaming",
+        "currency": "IDR",
+        "status": "ACTIVATED",
+        "provider_id": 33,
+        "product_id": 51,
+        "product_code": 1052,
+        "product_name": "dream_gaming",
+        "game_type": "LIVE_CASINO",
+        "product_title": "Dream Gaming"
+    },
+    {
+        "provider": "BigGaming",
+        "currency": "IDR2",
+        "status": "ACTIVATED",
+        "provider_id": 34,
+        "product_id": 68,
+        "product_code": 1004,
+        "product_name": "big_gaming",
+        "game_type": "LIVE_CASINO",
+        "product_title": "BigGaming"
+    },
+    {
+        "provider": "BigGaming",
+        "currency": "IDR2",
+        "status": "MAINTAINED",
+        "provider_id": 34,
+        "product_id": 69,
+        "product_code": 1004,
+        "product_name": "big_gaming",
+        "game_type": "FISHING",
+        "product_title": "BigGaming"
+    },
+    {
+        "provider": "AdvantPlay",
+        "currency": "IDR",
+        "status": "ACTIVATED",
+        "provider_id": 39,
+        "product_id": 158,
+        "product_code": 1204,
+        "product_name": "advantplay",
+        "game_type": "SLOT",
+        "product_title": "Advantplay"
+    },
+    
+    {
+        "provider": "PlayStar",
+        "currency": "IDR",
+        "status": "ACTIVATED",
+        "provider_id": 42,
+        "product_id": 37,
+        "product_code": 1050,
+        "product_name": "playstar",
+        "game_type": "SLOT",
+        "product_title": "PlayStar"
+    },
+    {
+        "provider": "Simple Play",
+        "currency": "IDR",
+        "status": "ACTIVATED",
+        "provider_id": 45,
+        "product_id": 192,
+        "product_code": 1231,
+        "product_name": "simpleplay",
+        "game_type": "SLOT",
+        "product_title": "SIMPLEPLAY"
+    },
+    {
+        "provider": "Simple Play",
+        "currency": "IDR",
+        "status": "ACTIVATED",
+        "provider_id": 45,
+        "product_id": 193,
+        "product_code": 1231,
+        "product_name": "simpleplay",
+        "game_type": "FISHING",
+        "product_title": "SIMPLEPLAY"
+    },
+    
     {
         "provider": "MrSlotty",
         "currency": "IDR",
@@ -880,3 +888,6 @@
         "product_title": "PANDA SPORTS"
     }
 ]
+] 
+       
+}
