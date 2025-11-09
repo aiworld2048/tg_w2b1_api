@@ -1,0 +1,23 @@
+sudo apt install postgresql postgresql-contrib -y
+sudo systemctl status postgresql
+CREATE DATABASE tg_slot;
+CREATE USER tg_db_user WITH PASSWORD 'tgdbslotpassword';
+GRANT ALL PRIVILEGES ON DATABASE tg_slot TO tg_db_user;
+ALTER USER tg_db_user WITH PASSWORD 'tgdbslotpassword';
+
+sudo -i -u postgres
+psql -d tg_slot
+
+psql -h 127.0.0.1 -U tg_db_user -d tg_slot
+
+GRANT ALL ON SCHEMA public TO tg_db_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO tg_db_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO tg_db_user;
+
+sudo -i -u postgres
+psql -d ponewine_db
+ALTER SCHEMA public OWNER TO tg_db_user;
+
+pm2 start yarn --name "w2b1_next_slot" -- start
+pm2 startup
+pm2 save
