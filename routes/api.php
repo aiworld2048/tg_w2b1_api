@@ -2,44 +2,35 @@
 
 use App\Http\Controllers\Api\Player\GameLogController;
 use App\Http\Controllers\Api\Player\TransactionController;
+use App\Http\Controllers\Api\PoneWine\GameMatchController;
+use App\Http\Controllers\Api\PoneWine\PoneWineClientBalanceUpdateController;
+use App\Http\Controllers\Api\PoneWine\PoneWineLaunchGameController;
 use App\Http\Controllers\Api\ThreeDController;
 use App\Http\Controllers\Api\V1\Auth\AuthController;
-
 use App\Http\Controllers\Api\V1\Bank\BankController;
 use App\Http\Controllers\Api\V1\BannerController;
 use App\Http\Controllers\Api\V1\ContactController;
-
 use App\Http\Controllers\Api\V1\DepositRequestController;
-
+use App\Http\Controllers\Api\V1\Game\BuffaloGameController;
 use App\Http\Controllers\Api\V1\Game\GameController;
 use App\Http\Controllers\Api\V1\Game\GSCPlusProviderController;
 use App\Http\Controllers\Api\V1\Game\LaunchGameController;
 use App\Http\Controllers\Api\V1\Game\ProviderLaunchGameController;
-
-use App\Http\Controllers\Api\V1\Shan\ShanLaunchGameController;
-
 use App\Http\Controllers\Api\V1\gplus\Webhook\DepositController;
 use App\Http\Controllers\Api\V1\gplus\Webhook\GameListController;
 use App\Http\Controllers\Api\V1\gplus\Webhook\GetBalanceController;
 use App\Http\Controllers\Api\V1\gplus\Webhook\ProductListController;
 use App\Http\Controllers\Api\V1\gplus\Webhook\PushBetDataController;
 use App\Http\Controllers\Api\V1\gplus\Webhook\WithdrawController;
-
 use App\Http\Controllers\Api\V1\PromotionController;
+use App\Http\Controllers\Api\V1\Shan\BalanceUpdateCallbackController;
 use App\Http\Controllers\Api\V1\Shan\ShanGetBalanceController;
-
+use App\Http\Controllers\Api\V1\Shan\ShanLaunchGameController;
+use App\Http\Controllers\Api\V1\Shan\ShanTransactionController;
 use App\Http\Controllers\Api\V1\TwoDigit\TwoDigitBetController;
 use App\Http\Controllers\Api\V1\WithDrawRequestController;
-use App\Http\Controllers\Api\V1\Shan\ShanTransactionController;
-use App\Http\Controllers\Api\V1\Shan\BalanceUpdateCallbackController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\PoneWine\GameMatchController;
-use App\Http\Controllers\Api\PoneWine\PoneWineClientBalanceUpdateController;
-use App\Http\Controllers\Api\PoneWine\PoneWineLaunchGameController;
-use App\Http\Controllers\Api\V1\Game\BuffaloGameController;
-
-
 
 /*
 |--------------------------------------------------------------------------
@@ -64,11 +55,9 @@ Route::prefix('v1/api/seamless')->group(function () {
     Route::post('pushbetdata', [PushBetDataController::class, 'pushBetData']);
 });
 
-
 Route::group(['middleware' => ['auth:sanctum']], function () {
     Route::post('/seamless/launch-game', [LaunchGameController::class, 'launchGame']);
 
-   
     // user api
     Route::get('user', [AuthController::class, 'getUser']);
     Route::get('/banks', [GSCPlusProviderController::class, 'banks']);
@@ -87,8 +76,6 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
     Route::get('/player/game-logs', [GameLogController::class, 'index']);
     Route::get('user', [AuthController::class, 'getUser']);
 
-     
-
 });
 
 Route::get('winnerText', [BannerController::class, 'winnerText']);
@@ -106,22 +93,17 @@ Route::get('/game_lists/{type}/{provider}', [GSCPlusProviderController::class, '
 Route::get('/game_lists/{type}/{productcode}', [GSCPlusProviderController::class, 'NewgameLists']);
 Route::get('/hot_game_lists', [GSCPlusProviderController::class, 'hotGameLists']);
 
-
-
 Route::middleware(['auth:sanctum'])->group(function () {
-   
-    Route::post('/change-password', [AuthController::class, 'changePassword']); 
+
+    Route::post('/change-password', [AuthController::class, 'changePassword']);
 });
-
-
-
 
 // Buffalo Game API routes
 Route::prefix('buffalo')->group(function () {
     // Public webhook endpoints (no authentication required)
     Route::post('/get-user-balance', [BuffaloGameController::class, 'getUserBalance']);
     Route::post('/change-balance', [BuffaloGameController::class, 'changeBalance']);
-    
+
     // Protected endpoints for frontend integration
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/game-auth', [BuffaloGameController::class, 'generateGameAuth']);
@@ -129,4 +111,3 @@ Route::prefix('buffalo')->group(function () {
         Route::post('/launch-game', [BuffaloGameController::class, 'launchGame']);
     });
 });
-

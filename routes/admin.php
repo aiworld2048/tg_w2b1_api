@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\BankController;
 use App\Http\Controllers\Admin\BannerAdsController;
 use App\Http\Controllers\Admin\BannerController;
 use App\Http\Controllers\Admin\BannerTextController;
+use App\Http\Controllers\Admin\BuffaloGame\BuffaloReportController;
 use App\Http\Controllers\Admin\ContactController;
 use App\Http\Controllers\Admin\DepositRequestController;
 use App\Http\Controllers\Admin\GameListController;
@@ -15,9 +16,9 @@ use App\Http\Controllers\Admin\PlayerController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\PromotionController;
 use App\Http\Controllers\Admin\TransferLogController;
+use App\Http\Controllers\Admin\UserGuideController;
 use App\Http\Controllers\Admin\WinnerTextController;
 use App\Http\Controllers\Admin\WithDrawRequestController;
-use App\Http\Controllers\Admin\BuffaloGame\BuffaloReportController;
 use App\Http\Controllers\HomeController;
 use Illuminate\Support\Facades\Route;
 
@@ -52,7 +53,6 @@ Route::group([
     Route::resource('contact', ContactController::class);
     Route::resource('paymentTypes', PaymentTypeController::class);
     Route::resource('bank', BankController::class);
-
 
     // agent start
     Route::controller(AgentController::class)
@@ -134,6 +134,8 @@ Route::group([
         Route::post('agent/players/{player}/cash-out', [AgentPlayerController::class, 'makeCashOut'])->name('agent.players.makeCashOut');
     });
 
+    Route::get('user-guide', UserGuideController::class)->name('user-guide');
+
     // Withdraw routes (for process_withdraw permission)
     Route::middleware(['permission:process_withdraw'])->group(function () {
         Route::get('finicialwithdraw', [WithDrawRequestController::class, 'index'])->name('agent.withdraw');
@@ -159,8 +161,6 @@ Route::group([
     // Route::get('transer-log', [TransferLogController::class, 'index'])->name('transferLog');
     Route::get('playertransferlog/{id}', [TransferLogController::class, 'PlayertransferLog'])->name('PlayertransferLogDetail');
 
-    
-    
     // provider start
     Route::get('gametypes', [ProductController::class, 'index'])->name('gametypes.index');
     Route::post('/game-types/{productId}/toggle-status', [ProductController::class, 'toggleStatus'])->name('gametypes.toggle-status');
@@ -185,8 +185,6 @@ Route::group([
     Route::post('/game-list/{id}/update-image-url', [GameListController::class, 'updateImageUrl'])->name('game_list.update_image_url');
     Route::get('game-list-order/{gameList}/edit', [GameListController::class, 'GameListOrderedit'])->name('game_list_order.edit');
     Route::post('/game-lists/{id}/update-order', [GameListController::class, 'updateOrder'])->name('GameListOrderUpdate');
-
-    
 
     // Buffalo Game reports
     Route::group(['prefix' => 'buffalo-game'], function () {

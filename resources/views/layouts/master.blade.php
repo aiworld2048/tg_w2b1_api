@@ -160,19 +160,19 @@
                         @can('view_player_list')
                             @php
                                 $currentUser = auth()->user();
-                            $playerRouteName = 'admin.players.grouped';
-                            $playerActiveRoutes = ['admin.players.grouped', 'admin.players.grouped.show'];
+                                $playerRouteName = 'admin.players.grouped';
+                                $playerActiveRoutes = ['admin.players.grouped', 'admin.players.grouped.show'];
                                 if ($currentUser && (int) $currentUser->type === \App\Enums\UserType::Agent->value) {
-                                $playerRouteName = 'admin.agent.players.index';
+                                    $playerRouteName = 'admin.agent.players.index';
                                     $playerActiveRoutes = [
-                                    'admin.agent.players.index',
-                                    'admin.agent.players.create',
-                                    'admin.agent.players.edit',
-                                    'admin.agent.players.logs',
-                                    'admin.agent.players.report',
-                                    'admin.agent.players.getCashIn',
-                                    'admin.agent.players.getCashOut',
-                                    'admin.agent.players.getChangePassword',
+                                        'admin.agent.players.index',
+                                        'admin.agent.players.create',
+                                        'admin.agent.players.edit',
+                                        'admin.agent.players.logs',
+                                        'admin.agent.players.report',
+                                        'admin.agent.players.getCashIn',
+                                        'admin.agent.players.getCashOut',
+                                        'admin.agent.players.getChangePassword',
                                     ];
                                 }
                             @endphp
@@ -186,6 +186,13 @@
                                 </a>
                             </li>
                         @endcan
+                        <li class="nav-item">
+                            <a href="{{ route('admin.user-guide') }}"
+                                class="nav-link {{ Route::currentRouteName() === 'admin.user-guide' ? 'active' : '' }}">
+                                <i class="fas fa-book"></i>
+                                <p>User Guide</p>
+                            </a>
+                        </li>
                         @can('contact')
                             <li class="nav-item">
                                 <a href="{{ route('admin.contact.index') }}"

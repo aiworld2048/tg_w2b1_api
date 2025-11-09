@@ -1,8 +1,8 @@
 <?php
 
 use App\Http\Controllers\Admin\LoginController;
-use App\Http\Controllers\HomeController;
 use App\Http\Controllers\Admin\PlayerController;
+use App\Http\Controllers\HomeController;
 use App\Http\Controllers\TransferLogController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -36,7 +36,4 @@ Route::post('update-password/{user}', [LoginController::class, 'updatePassword']
     ->name('updatePassword')
     ->middleware('auth');
 
-
-
 Route::get('admin/product/game-list', [\App\Http\Controllers\Admin\ProductController::class, 'GameListFetch'])->name('admin.product.game-list');
-
