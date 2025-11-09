@@ -1,7 +1,7 @@
 {
     "ProviderGames": 
     [
-    [
+    
         {
         "provider": "PG Soft",
         "currency": "IDR2",
@@ -888,6 +888,6 @@
         "product_title": "PANDA SPORTS"
     }
 ]
-] 
+
        
 }
