@@ -106,11 +106,18 @@ class WalletService
         $fromType = $this->resolveUserType($from);
         $toType = $this->resolveUserType($to);
 
-        $isOwnerToAgent = $fromType === UserType::Owner && $toType === UserType::Agent && $to->agent_id === $from->id;
-        $isAgentToPlayer = $fromType === UserType::Agent && $toType === UserType::Player && $to->agent_id === $from->id;
+        $isOwnerToAgent = $fromType === UserType::Owner
+            && $toType === UserType::Agent
+            && $to->agent_id === $from->id;
+        $isAgentToPlayer = $fromType === UserType::Agent
+            && $toType === UserType::Player
+            && $to->agent_id === $from->id;
         $isSystemToOwner = $fromType === UserType::SystemWallet && $toType === UserType::Owner;
+        $isAgentToOwner = $fromType === UserType::Agent
+            && $toType === UserType::Owner
+            && $from->agent_id === $to->id;
 
-        if ($isOwnerToAgent || $isAgentToPlayer || $isSystemToOwner) {
+        if ($isOwnerToAgent || $isAgentToPlayer || $isSystemToOwner || $isAgentToOwner) {
             return;
         }
 
