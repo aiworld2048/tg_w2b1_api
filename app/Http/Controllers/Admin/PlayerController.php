@@ -27,7 +27,7 @@ class PlayerController extends Controller
      */
     public function index()
     {
-        return redirect()->route('admin.players.grouped');
+        return redirect()->route('players.grouped');
     }
     public function groupedIndex()
     {
@@ -188,7 +188,7 @@ class PlayerController extends Controller
 
             DB::commit();
 
-            return redirect()->route('admin.players.grouped.show', $agent->id)
+            return redirect()->route('players.grouped.show', $agent->id)
                 ->with('successMessage', 'Player created successfully')
                 ->with('amount', $inputs['amount'])
                 ->with('password', $request->password)

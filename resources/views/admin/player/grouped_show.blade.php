@@ -10,7 +10,7 @@
             <div class="col-sm-6">
                 <ol class="breadcrumb float-sm-right">
                     <li class="breadcrumb-item"><a href="{{ route('home') }}">Home</a></li>
-                    <li class="breadcrumb-item"><a href="{{ route('admin.players.grouped') }}">Player Lists</a></li>
+                    <li class="breadcrumb-item"><a href="{{ route('players.grouped') }}">Player Lists</a></li>
                     <li class="breadcrumb-item active">{{ $agent->name }}</li>
                 </ol>
             </div>
@@ -28,11 +28,11 @@
                 </div>
                 <div class="d-flex gap-2">
                     @can('create_player')
-                        <a href="{{ route('admin.players.create', ['agent_id' => $agent->id]) }}" class="btn btn-success">
+                        <a href="{{ route('players.create', ['agent_id' => $agent->id]) }}" class="btn btn-success">
                             <i class="fas fa-plus me-1"></i> Create Player
                         </a>
                     @endcan
-                    <a href="{{ route('admin.players.grouped') }}" class="btn btn-outline-secondary">
+                    <a href="{{ route('players.grouped') }}" class="btn btn-outline-secondary">
                         &larr; Back to Agents
                     </a>
                 </div>

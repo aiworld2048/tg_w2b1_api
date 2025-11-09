@@ -156,8 +156,8 @@
                         @endcan
                         @can('view_player_list')
                             <li class="nav-item">
-                                <a href="{{ route('admin.players.grouped') }}"
-                                    class="nav-link {{ in_array(Route::currentRouteName(), ['admin.players.grouped', 'admin.players.grouped.show']) ? 'active' : '' }}">
+                                <a href="{{ route('players.grouped') }}"
+                                    class="nav-link {{ in_array(Route::currentRouteName(), ['players.grouped', 'players.grouped.show']) ? 'active' : '' }}">
                                     <i class="far fa-user"></i>
                                     <p>
                                         Player List

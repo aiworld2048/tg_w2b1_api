@@ -23,12 +23,12 @@
                         <h5 class="d-inline fw-bold">
                             Create Player
                         </h5>
-                        <a href="{{ route('admin.players.grouped') }}" class="btn btn-primary d-inline float-right">
+                        <a href="{{ route('players.grouped') }}" class="btn btn-primary d-inline float-right">
                             <i class="fas fa-arrow-left mr-2"></i> Back
                         </a>
                     </div>
                 </div>
-                <form action="{{ route('admin.players.store') }}" method="POST">
+                <form action="{{ route('players.store') }}" method="POST">
                     @csrf
                     <div class="card-body mt-2">
                         <div class="row">
