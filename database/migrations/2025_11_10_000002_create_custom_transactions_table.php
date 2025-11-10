@@ -15,11 +15,11 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('user_id');
             $table->unsignedBigInteger('target_user_id')->nullable();
-            $table->decimal('amount', 15, 2);
+            $table->decimal('amount', 20, 4);
             $table->string('type'); // deposit, withdraw, transfer
             $table->string('transaction_name');
-            $table->decimal('old_balance', 15, 2);
-            $table->decimal('new_balance', 15, 2);
+            $table->decimal('old_balance', 20, 4);
+            $table->decimal('new_balance', 20, 4);
             $table->json('meta')->nullable();
             $table->string('uuid')->unique();
             $table->boolean('confirmed')->default(true);

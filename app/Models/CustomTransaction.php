@@ -29,9 +29,9 @@ class CustomTransaction extends Model
     ];
 
     protected $casts = [
-        'amount' => 'decimal:2',
-        'old_balance' => 'decimal:2',
-        'new_balance' => 'decimal:2',
+        'amount' => 'decimal:4',
+        'old_balance' => 'decimal:4',
+        'new_balance' => 'decimal:4',
         'meta' => 'json',
         'confirmed' => 'boolean',
         'created_at' => 'datetime',

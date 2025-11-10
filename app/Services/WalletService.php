@@ -8,6 +8,7 @@ use App\Models\CustomTransaction;
 use App\Models\TransferLog;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 use RuntimeException;
 
@@ -111,7 +112,10 @@ class WalletService
                 $normalizedAmount,
                 $fromBefore,
                 $fromAfter,
-                $meta + ['direction' => 'debit']
+                $meta + [
+                    'direction' => 'debit',
+                    'target_user_id' => $toLocked->id,
+                ]
             );
 
             $this->recordCustomTransaction(
@@ -121,7 +125,10 @@ class WalletService
                 $normalizedAmount,
                 $toBefore,
                 $toAfter,
-                $meta + ['direction' => 'credit']
+                $meta + [
+                    'direction' => 'credit',
+                    'target_user_id' => $fromLocked->id,
+                ]
             );
         });
     }
@@ -230,12 +237,15 @@ class WalletService
     ): void {
         CustomTransaction::create([
             'user_id' => $user->id,
+            'target_user_id' => $meta['target_user_id'] ?? null,
             'transaction_name' => $transactionName->value,
             'type' => $type,
             'amount' => $amount,
-            'before_balance' => $beforeBalance,
-            'after_balance' => $afterBalance,
+            'old_balance' => $beforeBalance,
+            'new_balance' => $afterBalance,
             'meta' => empty($meta) ? null : $meta,
+            'uuid' => (string) Str::uuid(),
+            'confirmed' => true,
         ]);
     }
 

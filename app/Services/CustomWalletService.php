@@ -257,7 +257,7 @@ class CustomWalletService
             'transaction_name' => $transactionName->value,
             'old_balance' => $oldBalance,
             'new_balance' => $newBalance,
-            'meta' => json_encode($meta),
+            'meta' => empty($meta) ? null : $meta,
             'uuid' => Str::uuid()->toString(),
             'confirmed' => true,
             'created_at' => now(),
