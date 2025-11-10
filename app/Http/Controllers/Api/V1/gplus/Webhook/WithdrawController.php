@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\gplus\Webhook;
 use App\Enums\SeamlessWalletCode;
 use App\Enums\TransactionName;
 use App\Http\Controllers\Controller;
+use App\Models\CustomTransaction;
 use App\Models\GameList;
 use App\Models\PlaceBet;
 use App\Models\User;
@@ -99,11 +100,11 @@ class WithdrawController extends Controller
         $expectedSign = md5(
             $request->operator_code.
             $request->request_time.
-            'withdraw'. // Ensure this matches the string used in the provider's signature generation
+            'withdraw'.
             $secretKey
         );
         $isValidSign = strtolower($request->sign) === strtolower($expectedSign);
-        $isValidCurrency = in_array($request->currency, $this->allowedCurrencies);
+        $isValidCurrency = in_array($request->currency, $this->allowedCurrencies, true);
 
         $responseData = [];
 
@@ -112,19 +113,17 @@ class WithdrawController extends Controller
 
             $memberAccount = $batchRequest['member_account'] ?? null;
             $productCode = $batchRequest['product_code'] ?? null;
-            $gameType = $batchRequest['game_type'] ?? '';
 
-            // Handle batch-level errors (invalid signature or currency)
             if (! $isValidSign) {
                 Log::warning('Invalid signature for batch', ['member_account' => $memberAccount, 'provided' => $request->sign, 'expected' => $expectedSign]);
-                $responseData[] = $this->buildErrorResponse($memberAccount, $productCode, 0.0, SeamlessWalletCode::InvalidSignature, 'Invalid signature', $request->currency);
+                $responseData[] = $this->buildErrorResponse($memberAccount, $productCode, '0.0000', SeamlessWalletCode::InvalidSignature, 'Invalid signature', $request->currency);
 
                 continue;
             }
 
             if (! $isValidCurrency) {
                 Log::warning('Invalid currency for batch', ['member_account' => $memberAccount, 'currency' => $request->currency]);
-                $responseData[] = $this->buildErrorResponse($memberAccount, $productCode, 0.0, SeamlessWalletCode::InternalServerError, 'Invalid Currency', $request->currency);
+                $responseData[] = $this->buildErrorResponse($memberAccount, $productCode, '0.0000', SeamlessWalletCode::InternalServerError, 'Invalid Currency', $request->currency);
 
                 continue;
             }
@@ -134,22 +133,27 @@ class WithdrawController extends Controller
 
                 if (! $user) {
                     Log::warning('Member not found for withdraw/bet request', ['member_account' => $memberAccount]);
-                    $responseData[] = $this->buildErrorResponse($memberAccount, $productCode, 0.00, SeamlessWalletCode::MemberNotExist, 'Member not found', $request->currency);
+                    $responseData[] = $this->buildErrorResponse($memberAccount, $productCode, '0.0000', SeamlessWalletCode::MemberNotExist, 'Member not found', $request->currency);
 
                     continue;
                 }
 
-                $initialBalance = (float) $user->balance;
-                $currentBalance = $initialBalance; // This will track balance changes within the batch for accurate reporting
+                if (! is_numeric($user->balance)) {
+                    Log::warning('Invalid balance for member during withdraw/bet request', ['member_account' => $memberAccount, 'balance' => $user->balance]);
+                    $responseData[] = $this->buildErrorResponse($memberAccount, $productCode, '0.0000', SeamlessWalletCode::MemberNotExist, 'Invalid user balance', $request->currency);
+
+                    continue;
+                }
+
+                $currentBalance = $this->toScaledString($user->balance);
 
                 foreach ($batchRequest['transactions'] ?? [] as $tx) {
                     $transactionId = $tx['id'] ?? null;
                     $action = strtoupper($tx['action'] ?? '');
-                    $amount = floatval($tx['amount'] ?? 0); // Ensure amount is float for calculations
+                    $amount = floatval($tx['amount'] ?? 0);
                     $wagerCode = $tx['wager_code'] ?? $tx['round_id'] ?? null;
                     $gameCode = $tx['game_code'] ?? null;
 
-                    // Determine game_type, prioritizing batchRequest, then DB lookup
                     $transactionGameType = $batchRequest['game_type'] ?? null;
                     if (empty($transactionGameType) && $gameCode) {
                         $transactionGameType = GameList::where('game_code', $gameCode)->value('game_type');
@@ -170,24 +174,21 @@ class WithdrawController extends Controller
                             'Missing game_type',
                             $request->currency
                         );
-                        $this->logPlaceBet($batchRequest, $request, $tx, 'failed', $request->request_time, 'Missing game_type', $currentBalance, $currentBalance);
+                        $this->logPlaceBet($batchRequest, $request, $tx, 'failed', $request->request_time, 'Missing game_type', (float) $currentBalance, (float) $currentBalance);
 
                         continue;
                     }
 
-                    // Check for crucial missing data for an individual transaction
-                    if (! $transactionId || empty($action)) { // Amount can be 0 or negative for certain actions
+                    if (! $transactionId || empty($action)) {
                         Log::warning('Missing crucial data in transaction for withdraw/bet', ['tx' => $tx]);
-                        $this->logPlaceBet($batchRequest, $request, $tx, 'failed', $request->request_time, 'Missing transaction data (id or action)', $currentBalance, $currentBalance);
+                        $this->logPlaceBet($batchRequest, $request, $tx, 'failed', $request->request_time, 'Missing transaction data (id or action)', (float) $currentBalance, (float) $currentBalance);
                         $responseData[] = $this->buildErrorResponse($memberAccount, $productCode, $currentBalance, SeamlessWalletCode::InternalServerError, 'Missing transaction data (id or action)', $request->currency);
 
                         continue;
                     }
 
-                    // Convert amount based on currency for internal processing (always positive for withdrawal amount)
-                    $convertedAmount = abs($this->toDecimalPlaces($amount * $this->getCurrencyValue($request->currency)));
+                    $convertedAmount = $this->convertAmount(abs($amount), $request->currency);
 
-                    // Meta data for wallet transaction and logging
                     $meta = [
                         'seamless_transaction_id' => $transactionId,
                         'action_type' => $action,
@@ -195,36 +196,68 @@ class WithdrawController extends Controller
                         'wager_code' => $wagerCode,
                         'round_id' => $tx['round_id'] ?? null,
                         'game_code' => $gameCode,
-                        'game_type' => $transactionGameType, // Ensure game_type is passed to meta
+                        'game_type' => $transactionGameType,
                         'channel_code' => $tx['channel_code'] ?? null,
                         'raw_payload' => $tx,
                     ];
 
-                    // Check for duplicate transactions (idempotency)
-                    $isDuplicate = PlaceBet::where('transaction_id', $transactionId)->exists();
+                    $isDuplicate = PlaceBet::where('transaction_id', $transactionId)->exists()
+                        || CustomTransaction::whereJsonContains('meta->seamless_transaction_id', $transactionId)->exists();
 
                     if ($isDuplicate) {
                         Log::warning('Duplicate transaction ID detected for withdraw/bet', ['tx_id' => $transactionId, 'member_account' => $memberAccount, 'action' => $action]);
-                        $this->logPlaceBet($batchRequest, $request, $tx, 'duplicate', $request->request_time, 'Duplicate transaction', $currentBalance, $currentBalance);
+                        $this->logPlaceBet($batchRequest, $request, $tx, 'duplicate', $request->request_time, 'Duplicate transaction', (float) $currentBalance, (float) $currentBalance);
                         $responseData[] = $this->buildErrorResponse($memberAccount, $productCode, $currentBalance, SeamlessWalletCode::DuplicateTransaction, 'Duplicate transaction', $request->currency);
 
                         continue;
                     }
 
-                    // Ensure action is a valid debit action for this controller
-                    if (! in_array($action, $this->debitActions)) {
+                    if (! in_array($action, $this->debitActions, true)) {
                         Log::warning('Unsupported action type received on withdraw endpoint', ['transaction_id' => $transactionId, 'action' => $action]);
-                        $this->logPlaceBet($batchRequest, $request, $tx, 'failed', $request->request_time, 'Unsupported action type for this endpoint: '.$action, $currentBalance, $currentBalance);
+                        $this->logPlaceBet($batchRequest, $request, $tx, 'failed', $request->request_time, 'Unsupported action type for this endpoint: '.$action, (float) $currentBalance, (float) $currentBalance);
                         $responseData[] = $this->buildErrorResponse($memberAccount, $productCode, $currentBalance, SeamlessWalletCode::InternalServerError, 'Unsupported action type: '.$action, $request->currency);
+
+                        continue;
+                    }
+
+                    if (bccomp($convertedAmount, '0', 4) <= 0) {
+                        Log::info('WithdrawController: Processing debit action with zero/negative amount', [
+                            'member_account' => $memberAccount,
+                            'action' => $action,
+                            'amount' => $amount,
+                        ]);
+
+                        $message = 'Processed with zero amount, no balance change.';
+                        $this->logPlaceBet(
+                            $batchRequest,
+                            $request,
+                            $tx,
+                            'info',
+                            $request->request_time,
+                            $message,
+                            (float) $currentBalance,
+                            (float) $currentBalance
+                        );
+
+                        $formattedBalance = $this->formatBalanceForResponse($currentBalance, $request->currency);
+
+                        $responseData[] = [
+                            'member_account' => $memberAccount,
+                            'product_code' => (int) $productCode,
+                            'before_balance' => $formattedBalance,
+                            'balance' => $formattedBalance,
+                            'code' => SeamlessWalletCode::Success->value,
+                            'message' => $message,
+                        ];
 
                         continue;
                     }
 
                     try {
                         $user->refresh();
-                        $beforeTransactionBalance = (float) $user->balance;
+                        $beforeTransactionBalance = $this->toScaledString($user->balance);
 
-                        if ($beforeTransactionBalance < $convertedAmount) {
+                        if (bccomp($beforeTransactionBalance, $convertedAmount, 4) < 0) {
                             $transactionCode = SeamlessWalletCode::InsufficientBalance->value;
                             $transactionMessage = 'Insufficient balance';
 
@@ -235,15 +268,17 @@ class WithdrawController extends Controller
                                 'failed',
                                 $request->request_time,
                                 $transactionMessage,
-                                $beforeTransactionBalance,
-                                $beforeTransactionBalance
+                                (float) $beforeTransactionBalance,
+                                (float) $beforeTransactionBalance
                             );
+
+                            $formattedBalance = $this->formatBalanceForResponse($beforeTransactionBalance, $request->currency);
 
                             $responseData[] = [
                                 'member_account' => $memberAccount,
                                 'product_code' => (int) $productCode,
-                                'before_balance' => $this->formatBalance($beforeTransactionBalance, $request->currency),
-                                'balance' => $this->formatBalance($beforeTransactionBalance, $request->currency),
+                                'before_balance' => $formattedBalance,
+                                'balance' => $formattedBalance,
                                 'code' => $transactionCode,
                                 'message' => $transactionMessage,
                             ];
@@ -252,7 +287,7 @@ class WithdrawController extends Controller
                         }
 
                         $updatedUser = $this->walletService->withdraw($user, $convertedAmount, TransactionName::Withdraw, $meta);
-                        $newBalance = (float) $updatedUser->balance;
+                        $afterTransactionBalance = $this->toScaledString($updatedUser->balance);
 
                         $transactionCode = SeamlessWalletCode::Success->value;
                         $transactionMessage = 'Transaction processed successfully';
@@ -264,11 +299,11 @@ class WithdrawController extends Controller
                             'completed',
                             $request->request_time,
                             $transactionMessage,
-                            $beforeTransactionBalance,
-                            $newBalance
+                            (float) $beforeTransactionBalance,
+                            (float) $afterTransactionBalance
                         );
 
-                        $currentBalance = $newBalance;
+                        $currentBalance = $afterTransactionBalance;
                         $user = $updatedUser;
                     } catch (RuntimeException|InvalidArgumentException $e) {
                         $transactionCode = SeamlessWalletCode::InsufficientBalance->value;
@@ -288,8 +323,8 @@ class WithdrawController extends Controller
                             'failed',
                             $request->request_time,
                             $transactionMessage,
-                            $beforeTransactionBalance ?? $currentBalance,
-                            $beforeTransactionBalance ?? $currentBalance
+                            isset($beforeTransactionBalance) ? (float) $beforeTransactionBalance : (float) $currentBalance,
+                            isset($beforeTransactionBalance) ? (float) $beforeTransactionBalance : (float) $currentBalance
                         );
 
                         $currentBalance = $beforeTransactionBalance ?? $currentBalance;
@@ -311,28 +346,31 @@ class WithdrawController extends Controller
                             'failed',
                             $request->request_time,
                             $transactionMessage,
-                            $beforeTransactionBalance ?? $currentBalance,
-                            $currentBalance
+                            isset($beforeTransactionBalance) ? (float) $beforeTransactionBalance : (float) $currentBalance,
+                            (float) $currentBalance
                         );
                     }
 
                     $responseData[] = [
                         'member_account' => $memberAccount,
                         'product_code' => (int) $productCode,
-                        'before_balance' => $this->formatBalance($beforeTransactionBalance ?? $currentBalance, $request->currency),
-                        'balance' => $this->formatBalance($currentBalance, $request->currency),
+                        'before_balance' => $this->formatBalanceForResponse($beforeTransactionBalance ?? $currentBalance, $request->currency),
+                        'balance' => $this->formatBalanceForResponse($currentBalance, $request->currency),
                         'code' => $transactionCode,
                         'message' => $transactionMessage,
                     ];
                 }
             } catch (\Throwable $e) {
-                // Catch any exception that might occur outside the inner transaction loop (e.g., user lookup failures)
-                Log::error('Batch processing exception for member in WithdrawController', ['member_account' => $memberAccount, 'error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
-                // This error applies to the entire batch, so we add a generic error for it
+                Log::error('Batch processing exception for member in WithdrawController', [
+                    'member_account' => $memberAccount,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+
                 $responseData[] = $this->buildErrorResponse(
                     $memberAccount,
                     $productCode,
-                    0.0, // Cannot determine balance if user/wallet not found
+                    '0.0000',
                     SeamlessWalletCode::InternalServerError,
                     'An unexpected error occurred during batch processing: '.$e->getMessage(),
                     $request->currency
@@ -346,45 +384,39 @@ class WithdrawController extends Controller
     /**
      * Helper to build a consistent error response.
      */
-    private function buildErrorResponse(string $memberAccount, string|int $productCode, float $balance, SeamlessWalletCode $code, string $message, string $currency): array
+    private function buildErrorResponse(string $memberAccount, string|int|null $productCode, string $balance, SeamlessWalletCode $code, string $message, string $currency): array
     {
         return [
             'member_account' => $memberAccount,
             'product_code' => (int) $productCode, // Ensure it's an int
-            'before_balance' => $this->formatBalance($balance, $currency),
-            'balance' => $this->formatBalance($balance, $currency),
+            'before_balance' => $this->formatBalanceForResponse($balance, $currency),
+            'balance' => $this->formatBalanceForResponse($balance, $currency),
             'code' => $code->value,
             'message' => $message,
         ];
     }
 
-    /**
-     * Converts a float to a specified number of decimal places.
-     */
-    private function toDecimalPlaces(float $value, int $precision = 4): float
+    private function convertAmount(float $amount, string $currency): string
     {
-        return round($value, $precision);
+        $multiplier = $this->getCurrencyValue($currency);
+        $scaled = number_format($amount * $multiplier, 4, '.', '');
+
+        return $this->toScaledString($scaled);
     }
 
-    /**
-     * Formats the balance based on the currency and its scaling.
-     */
-    private function formatBalance(float $balance, string $currency): float
+    private function formatBalanceForResponse(string $balance, string $currency): float
     {
-        // Use a match expression for cleaner currency value mapping
-        $divisor = match ($currency) {
-            'IDR2' => 100,
-            'KRW2' => 10,
-            'MMK2' => 1000, // Assuming MMK2 means 1/1000th unit
-            'VND2' => 1000,
-            'LAK2' => 10,
-            'KHR2' => 100,
-            default => 1, // Default to 1 for standard currencies
-        };
+        $divider = $this->getCurrencyValue($currency);
+        $scale = in_array($currency, $this->specialCurrencies, true) ? 4 : 2;
 
-        $precision = in_array($currency, $this->specialCurrencies) ? 4 : 2;
+        $normalized = bcdiv($this->toScaledString($balance), (string) $divider, $scale);
 
-        return round($balance / $divisor, $precision);
+        return (float) $normalized;
+    }
+
+    private function toScaledString(string|int|float $value): string
+    {
+        return bcadd((string) $value, '0', 4);
     }
 
     /**
@@ -396,7 +428,7 @@ class WithdrawController extends Controller
         return match ($currency) {
             'IDR2' => 100,
             'KRW2' => 10,
-            'MMK2' => 1000, // Assuming MMK2 implies external unit * 1000 = internal unit
+            'MMK2' => 1000,
             'VND2' => 1000,
             'LAK2' => 10,
             'KHR2' => 100,

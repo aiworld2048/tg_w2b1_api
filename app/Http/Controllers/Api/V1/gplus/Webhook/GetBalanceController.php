@@ -36,7 +36,7 @@ class GetBalanceController extends Controller
         // $allowedCurrencies = ['MMK', 'VND', 'INR', 'MYR', 'AOA', 'EUR', 'IDR', 'PHP', 'THB', 'JPY', 'COP', 'IRR', 'CHF', 'USD', 'MXN', 'ETB', 'CAD', 'BRL', 'NGN', 'KES', 'KRW', 'TND', 'LBP', 'BDT', 'CZK', 'IDR2', 'KRW2', 'MMK2', 'VND2', 'LAK2', 'KHR2'];
 
         $allowedCurrencies = ['MMK', 'IDR', 'IDR2', 'KRW2', 'MMK2', 'VND2', 'LAK2', 'KHR2'];
-        $isValidCurrency = in_array($request->currency, $allowedCurrencies);
+        $isValidCurrency = in_array($request->currency, $allowedCurrencies, true);
 
         $results = [];
         $specialCurrencies = ['IDR2', 'KRW2', 'MMK2', 'VND2', 'LAK2', 'KHR2'];
@@ -66,14 +66,9 @@ class GetBalanceController extends Controller
             }
 
             $user = User::where('user_name', $req['member_account'])->first();
-            if ($user) {
-                $balance = (float) $user->balance;
-                if (in_array($request->currency, $specialCurrencies)) {
-                    $balance = $balance / 1000; // Apply 1:1000 conversion here
-                    $balance = round($balance, 4);
-                } else {
-                    $balance = round($balance, 2);
-                }
+            if ($user && is_numeric($user->balance)) {
+                $normalizedBalance = $this->toScaledString($user->balance);
+                $balance = $this->formatBalanceForResponse($normalizedBalance, $request->currency);
                 $results[] = [
                     'member_account' => $req['member_account'],
                     'product_code' => $req['product_code'],
@@ -93,5 +88,33 @@ class GetBalanceController extends Controller
         }
 
         return ApiResponseService::success($results);
+    }
+
+    private function formatBalanceForResponse(string $balance, string $currency): float
+    {
+        $divider = $this->getCurrencyValue($currency);
+        $scale = in_array($currency, ['IDR2', 'KRW2', 'MMK2', 'VND2', 'LAK2', 'KHR2'], true) ? 4 : 2;
+
+        $normalized = bcdiv($balance, (string) $divider, $scale);
+
+        return (float) $normalized;
+    }
+
+    private function getCurrencyValue(string $currency): int|float
+    {
+        return match ($currency) {
+            'IDR2' => 100,
+            'KRW2' => 10,
+            'MMK2' => 1000,
+            'VND2' => 1000,
+            'LAK2' => 10,
+            'KHR2' => 100,
+            default => 1,
+        };
+    }
+
+    private function toScaledString(string|int|float $value): string
+    {
+        return bcadd((string) $value, '0', 4);
     }
 }

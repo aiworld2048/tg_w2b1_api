@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\TransactionName;
 use App\Enums\UserType;
+use App\Models\CustomTransaction;
 use App\Models\TransferLog;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -12,6 +13,8 @@ use RuntimeException;
 
 class WalletService
 {
+    private const SCALE = 4;
+
     /**
      * Credit balance to a user (e.g. capital injection).
      */
@@ -21,10 +24,22 @@ class WalletService
 
         return DB::transaction(function () use ($recipient, $normalizedAmount, $transactionName, $meta) {
             $recipient = $this->lockUser($recipient->id);
-            $recipient->balance = $this->addAmount($recipient->balance, $normalizedAmount);
+            $beforeBalance = $this->toScaledString($recipient->balance);
+
+            $recipient->balance = $this->addAmount($beforeBalance, $normalizedAmount);
             $recipient->save();
+            $afterBalance = $this->toScaledString($recipient->balance);
 
             $this->recordTransferLog(null, $recipient, $normalizedAmount, $transactionName, $meta);
+            $this->recordCustomTransaction(
+                $recipient,
+                'deposit',
+                $transactionName,
+                $normalizedAmount,
+                $beforeBalance,
+                $afterBalance,
+                $meta
+            );
 
             return $recipient->refresh();
         });
@@ -39,12 +54,23 @@ class WalletService
 
         return DB::transaction(function () use ($user, $normalizedAmount, $transactionName, $meta) {
             $user = $this->lockUser($user->id);
-            $this->ensureSufficientBalance($user, $normalizedAmount);
+            $beforeBalance = $this->toScaledString($user->balance);
+            $this->ensureSufficientBalance($beforeBalance, $normalizedAmount, $user);
 
-            $user->balance = $this->subtractAmount($user->balance, $normalizedAmount);
+            $user->balance = $this->subtractAmount($beforeBalance, $normalizedAmount);
             $user->save();
+            $afterBalance = $this->toScaledString($user->balance);
 
             $this->recordTransferLog($user, null, $normalizedAmount, $transactionName, $meta);
+            $this->recordCustomTransaction(
+                $user,
+                'withdraw',
+                $transactionName,
+                $normalizedAmount,
+                $beforeBalance,
+                $afterBalance,
+                $meta
+            );
 
             return $user->refresh();
         });
@@ -62,27 +88,53 @@ class WalletService
             $fromLocked = $this->lockUser($from->id);
             $toLocked = $this->lockUser($to->id);
 
-            $this->ensureSufficientBalance($fromLocked, $normalizedAmount);
+            $fromBefore = $this->toScaledString($fromLocked->balance);
+            $toBefore = $this->toScaledString($toLocked->balance);
 
-            $fromLocked->balance = $this->subtractAmount($fromLocked->balance, $normalizedAmount);
-            $toLocked->balance = $this->addAmount($toLocked->balance, $normalizedAmount);
+            $this->ensureSufficientBalance($fromBefore, $normalizedAmount, $fromLocked);
+
+            $fromLocked->balance = $this->subtractAmount($fromBefore, $normalizedAmount);
+            $toLocked->balance = $this->addAmount($toBefore, $normalizedAmount);
 
             $fromLocked->save();
             $toLocked->save();
 
+            $fromAfter = $this->toScaledString($fromLocked->balance);
+            $toAfter = $this->toScaledString($toLocked->balance);
+
             $this->recordTransferLog($fromLocked, $toLocked, $normalizedAmount, $transactionName, $meta);
+
+            $this->recordCustomTransaction(
+                $fromLocked,
+                'withdraw',
+                $transactionName,
+                $normalizedAmount,
+                $fromBefore,
+                $fromAfter,
+                $meta + ['direction' => 'debit']
+            );
+
+            $this->recordCustomTransaction(
+                $toLocked,
+                'deposit',
+                $transactionName,
+                $normalizedAmount,
+                $toBefore,
+                $toAfter,
+                $meta + ['direction' => 'credit']
+            );
         });
     }
 
-    private function normalizeAmount(int|float|string $amount): int
+    private function normalizeAmount(int|float|string $amount): string
     {
         if (! is_numeric($amount)) {
             throw new InvalidArgumentException('Amount must be numeric.');
         }
 
-        $normalized = (int) $amount;
+        $normalized = $this->toScaledString($amount);
 
-        if ($normalized <= 0) {
+        if (bccomp($normalized, '0', self::SCALE) <= 0) {
             throw new InvalidArgumentException('Amount must be greater than zero.');
         }
 
@@ -94,9 +146,9 @@ class WalletService
         return User::query()->whereKey($userId)->lockForUpdate()->firstOrFail();
     }
 
-    private function ensureSufficientBalance(User $user, int $amount): void
+    private function ensureSufficientBalance(string $currentBalance, string $amount, User $user): void
     {
-        if ((int) $user->balance < $amount) {
+        if (bccomp($currentBalance, $amount, self::SCALE) < 0) {
             throw new RuntimeException("User {$user->id} has insufficient balance.");
         }
     }
@@ -136,17 +188,17 @@ class WalletService
         return UserType::from((int) $user->type);
     }
 
-    private function addAmount(string|int $currentBalance, int $amount): string
+    private function addAmount(string|int|float $currentBalance, string $amount): string
     {
-        return (string) ((int) $currentBalance + $amount);
+        return bcadd($this->toScaledString($currentBalance), $amount, self::SCALE);
     }
 
-    private function subtractAmount(string|int $currentBalance, int $amount): string
+    private function subtractAmount(string|int|float $currentBalance, string $amount): string
     {
-        return (string) ((int) $currentBalance - $amount);
+        return bcsub($this->toScaledString($currentBalance), $amount, self::SCALE);
     }
 
-    private function recordTransferLog(?User $from, ?User $to, int $amount, TransactionName $transactionName, array $meta = []): void
+    private function recordTransferLog(?User $from, ?User $to, string $amount, TransactionName $transactionName, array $meta = []): void
     {
         if (! $from || ! $to) {
             return;
@@ -162,8 +214,37 @@ class WalletService
         ]);
     }
 
-    private function formatAmountForLog(int $amount): string
+    private function formatAmountForLog(string $amount): string
     {
-        return number_format($amount, 2, '.', '');
+        return number_format((float) $amount, 2, '.', '');
+    }
+
+    private function recordCustomTransaction(
+        User $user,
+        string $type,
+        TransactionName $transactionName,
+        string $amount,
+        string $beforeBalance,
+        string $afterBalance,
+        array $meta = []
+    ): void {
+        CustomTransaction::create([
+            'user_id' => $user->id,
+            'transaction_name' => $transactionName->value,
+            'type' => $type,
+            'amount' => $amount,
+            'before_balance' => $beforeBalance,
+            'after_balance' => $afterBalance,
+            'meta' => empty($meta) ? null : $meta,
+        ]);
+    }
+
+    private function toScaledString(string|int|float $value): string
+    {
+        if (! is_numeric($value)) {
+            throw new InvalidArgumentException('Amount must be numeric.');
+        }
+
+        return bcadd((string) $value, '0', self::SCALE);
     }
 }

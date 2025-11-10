@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\gplus\Webhook;
 use App\Enums\SeamlessWalletCode;
 use App\Enums\TransactionName;
 use App\Http\Controllers\Controller;
+use App\Models\CustomTransaction;
 use App\Models\GameList;
 use App\Models\PlaceBet;
 use App\Models\TransactionLog;
@@ -23,6 +24,11 @@ class DepositController extends Controller
      * @var array Allowed currencies for deposit.
      */
     private array $allowedCurrencies = ['MMK', 'IDR', 'IDR2', 'KRW2', 'MMK2', 'VND2', 'LAK2', 'KHR2'];
+
+    /**
+     * @var array Currencies requiring special formatting (scaled values).
+     */
+    private array $specialCurrencies = ['IDR2', 'KRW2', 'MMK2', 'VND2', 'LAK2', 'KHR2'];
 
     /**
      * @var array Actions considered as deposits.
@@ -80,7 +86,6 @@ class DepositController extends Controller
     private function processTransactions(Request $request, bool $isDeposit): array
     {
         $secretKey = Config::get('seamless_key.secret_key');
-        // $operatorCode = Config::get('seamless_key.operator_code'); // Not used directly in this method
 
         $expectedSign = md5(
             $request->operator_code.
@@ -89,7 +94,7 @@ class DepositController extends Controller
             $secretKey
         );
         $isValidSign = strtolower($request->sign) === strtolower($expectedSign);
-        $isValidCurrency = in_array($request->currency, $this->allowedCurrencies);
+        $isValidCurrency = in_array($request->currency, $this->allowedCurrencies, true);
 
         $results = [];
         $walletService = app(WalletService::class);
@@ -103,18 +108,17 @@ class DepositController extends Controller
 
             $memberAccount = $batchRequest['member_account'] ?? null;
             $productCode = $batchRequest['product_code'] ?? null;
-            $gameType = $batchRequest['game_type'] ?? '';
 
             if (! $isValidSign) {
                 Log::warning('Invalid signature for batch', ['member_account' => $memberAccount, 'provided' => $request->sign, 'expected' => $expectedSign]);
-                $results[] = $this->buildErrorResponse($memberAccount, $productCode, 0.0, SeamlessWalletCode::InvalidSignature, 'Invalid signature', $request->currency);
+                $results[] = $this->buildErrorResponse($memberAccount, $productCode, '0.0000', SeamlessWalletCode::InvalidSignature, 'Invalid signature', $request->currency);
 
                 continue;
             }
 
             if (! $isValidCurrency) {
                 Log::warning('Invalid currency for batch', ['member_account' => $memberAccount, 'currency' => $request->currency]);
-                $results[] = $this->buildErrorResponse($memberAccount, $productCode, 0.0, SeamlessWalletCode::InternalServerError, 'Invalid Currency', $request->currency);
+                $results[] = $this->buildErrorResponse($memberAccount, $productCode, '0.0000', SeamlessWalletCode::InternalServerError, 'Invalid Currency', $request->currency);
 
                 continue;
             }
@@ -123,13 +127,19 @@ class DepositController extends Controller
                 $user = User::where('user_name', $memberAccount)->first();
                 if (! $user) {
                     Log::warning('Member not found', ['member_account' => $memberAccount]);
-                    $results[] = $this->buildErrorResponse($memberAccount, $productCode, 0.0, SeamlessWalletCode::MemberNotExist, 'Member not found', $request->currency);
+                    $results[] = $this->buildErrorResponse($memberAccount, $productCode, '0.0000', SeamlessWalletCode::MemberNotExist, 'Member not found', $request->currency);
 
                     continue;
                 }
 
-                $initialBalance = (float) $user->balance;
-                $currentBalance = $initialBalance;
+                if (! is_numeric($user->balance)) {
+                    Log::warning('Invalid balance for member during deposit request', ['member_account' => $memberAccount, 'balance' => $user->balance]);
+                    $results[] = $this->buildErrorResponse($memberAccount, $productCode, '0.0000', SeamlessWalletCode::MemberNotExist, 'Invalid user balance', $request->currency);
+
+                    continue;
+                }
+
+                $currentBalance = $this->toScaledString($user->balance);
 
                 foreach ($batchRequest['transactions'] ?? [] as $transactionRequest) {
                     $transactionId = $transactionRequest['id'] ?? null;
@@ -138,7 +148,6 @@ class DepositController extends Controller
                     $amount = round(floatval($transactionRequest['amount'] ?? 0), 4);
                     $gameCode = $transactionRequest['game_code'] ?? null;
 
-                    // Determine game_type, prioritizing batchRequest, then DB lookup
                     $transactionGameType = $batchRequest['game_type'] ?? null;
                     if (empty($transactionGameType) && $gameCode) {
                         $transactionGameType = GameList::where('game_code', $gameCode)->value('game_type');
@@ -154,7 +163,7 @@ class DepositController extends Controller
                         $results[] = $this->buildErrorResponse(
                             $memberAccount,
                             $productCode,
-                            0.0,
+                            $currentBalance,
                             SeamlessWalletCode::InternalServerError,
                             'Missing game_type',
                             $request->currency
@@ -164,27 +173,29 @@ class DepositController extends Controller
                         continue;
                     }
 
-                    // Duplicate check
-                    $isDuplicate = PlaceBet::where('transaction_id', $transactionId)->exists();
+                    $isDuplicate = PlaceBet::where('transaction_id', $transactionId)->exists()
+                        || CustomTransaction::whereJsonContains('meta->seamless_transaction_id', $transactionId)->exists();
 
                     if ($isDuplicate) {
-                        Log::warning('Duplicate transaction ID detected in place_bets or wallet_transactions', ['tx_id' => $transactionId, 'member_account' => $memberAccount]);
+                        Log::warning('Duplicate transaction ID detected in place_bets or wallet ledger', ['tx_id' => $transactionId, 'member_account' => $memberAccount]);
                         $results[] = $this->buildErrorResponse($memberAccount, $productCode, $currentBalance, SeamlessWalletCode::DuplicateTransaction, 'Duplicate transaction', $request->currency);
                         $this->logPlaceBet($batchRequest, $request, $transactionRequest, 'duplicate', $request->request_time, 'Duplicate transaction');
 
                         continue;
                     }
 
-                    // Validate action and wager status
                     if (! $this->isValidActionForDeposit($action) || ! $this->isValidWagerStatus($transactionRequest['wager_status'] ?? null)) {
-                        Log::warning('Invalid action or wager status for deposit endpoint', ['action' => $action, 'wager_status' => $transactionRequest['wager_status'] ?? 'N/A', 'member_account' => $memberAccount]);
+                        Log::warning('Invalid action or wager status for deposit endpoint', [
+                            'action' => $action,
+                            'wager_status' => $transactionRequest['wager_status'] ?? 'N/A',
+                            'member_account' => $memberAccount,
+                        ]);
                         $results[] = $this->buildErrorResponse($memberAccount, $productCode, $currentBalance, SeamlessWalletCode::BetNotExist, 'Invalid action type or wager status for deposit', $request->currency);
                         $this->logPlaceBet($batchRequest, $request, $transactionRequest, 'failed', $request->request_time, 'Invalid action type or wager status for deposit');
 
                         continue;
                     }
 
-                    // Specific handling for 'CANCEL' action
                     if ($action === 'CANCEL') {
                         $originalBet = PlaceBet::where('wager_code', $wagerCode)
                             ->where('member_account', $memberAccount)
@@ -199,11 +210,11 @@ class DepositController extends Controller
                         }
                     }
 
-                    $convertedAmount = $this->toDecimalPlaces($amount * $this->getCurrencyValue($request->currency));
+                    $convertedAmount = $this->convertAmount($amount, $request->currency);
 
                     try {
                         $user->refresh();
-                        $beforeTransactionBalance = (float) $user->balance;
+                        $beforeTransactionBalance = $this->toScaledString($user->balance);
 
                         $updatedUser = $walletService->deposit($user, $convertedAmount, TransactionName::Deposit, [
                             'seamless_transaction_id' => $transactionId,
@@ -214,13 +225,13 @@ class DepositController extends Controller
                             'from_admin' => $admin->id,
                         ]);
 
-                        $afterTransactionBalance = (float) $updatedUser->balance;
+                        $afterTransactionBalance = $this->toScaledString($updatedUser->balance);
 
                         $results[] = [
                             'member_account' => $memberAccount,
                             'product_code' => (int) $productCode,
-                            'before_balance' => round($beforeTransactionBalance / $this->getCurrencyValue($request->currency), 4),
-                            'balance' => round($afterTransactionBalance / $this->getCurrencyValue($request->currency), 4),
+                            'before_balance' => $this->formatBalanceForResponse($beforeTransactionBalance, $request->currency),
+                            'balance' => $this->formatBalanceForResponse($afterTransactionBalance, $request->currency),
                             'code' => SeamlessWalletCode::Success->value,
                             'message' => '',
                         ];
@@ -235,11 +246,15 @@ class DepositController extends Controller
                             'completed',
                             $request->request_time,
                             null,
-                            $beforeTransactionBalance,
-                            $afterTransactionBalance
+                            (float) $beforeTransactionBalance,
+                            (float) $afterTransactionBalance
                         );
                     } catch (Exception $e) {
-                        Log::error('Transaction processing exception', ['error' => $e->getMessage(), 'member_account' => $memberAccount, 'request_transaction' => $transactionRequest]);
+                        Log::error('Transaction processing exception', [
+                            'error' => $e->getMessage(),
+                            'member_account' => $memberAccount,
+                            'request_transaction' => $transactionRequest,
+                        ]);
                         $code = str_contains($e->getMessage(), 'greater than zero')
                             ? SeamlessWalletCode::InsufficientBalance
                             : SeamlessWalletCode::InternalServerError;
@@ -260,14 +275,25 @@ class DepositController extends Controller
                             'failed',
                             $request->request_time,
                             $e->getMessage(),
-                            $beforeTransactionBalance ?? null,
-                            $beforeTransactionBalance ?? null
+                            (float) ($beforeTransactionBalance ?? 0),
+                            (float) ($beforeTransactionBalance ?? 0)
                         );
                     }
                 }
             } catch (\Throwable $e) {
-                Log::error('Batch processing exception for member', ['member_account' => $memberAccount, 'error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
-                $results[] = $this->buildErrorResponse($memberAccount, $productCode, 0.0, SeamlessWalletCode::InternalServerError, 'An unexpected error occurred during batch processing.', $request->currency);
+                Log::error('Batch processing exception for member', [
+                    'member_account' => $memberAccount,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+                $results[] = $this->buildErrorResponse(
+                    $memberAccount,
+                    $productCode,
+                    '0.0000',
+                    SeamlessWalletCode::InternalServerError,
+                    'An unexpected error occurred during batch processing.',
+                    $request->currency
+                );
             }
         }
 
@@ -277,9 +303,9 @@ class DepositController extends Controller
     /**
      * Helper to build a consistent error response.
      */
-    private function buildErrorResponse(string $memberAccount, string $productCode, float $balance, SeamlessWalletCode $code, string $message, string $currency): array
+    private function buildErrorResponse(string $memberAccount, string|int|null $productCode, string $balance, SeamlessWalletCode $code, string $message, string $currency): array
     {
-        $formattedBalance = round($balance / $this->getCurrencyValue($currency), 4);
+        $formattedBalance = $this->formatBalanceForResponse($balance, $currency);
 
         return [
             'member_account' => $memberAccount,
@@ -293,15 +319,6 @@ class DepositController extends Controller
 
     /**
      * Converts a float to a specified number of decimal places.
-     */
-    private function toDecimalPlaces(float $value, int $precision = 4): float
-    {
-        return round($value, $precision);
-    }
-
-    /**
-     * Gets the currency conversion value.
-     * This is a placeholder; you'd implement actual currency rates here.
      */
     private function getCurrencyValue(string $currency): int
     {
@@ -334,6 +351,29 @@ class DepositController extends Controller
         }
 
         return in_array($wagerStatus, $this->allowedWagerStatuses);
+    }
+
+    private function convertAmount(float $amount, string $currency): string
+    {
+        $multiplier = $this->getCurrencyValue($currency);
+        $scaled = number_format($amount * $multiplier, 4, '.', '');
+
+        return $this->toScaledString($scaled);
+    }
+
+    private function formatBalanceForResponse(string $balance, string $currency): float
+    {
+        $divider = $this->getCurrencyValue($currency);
+        $scale = in_array($currency, $this->specialCurrencies, true) ? 4 : 2;
+
+        $normalized = bcdiv($this->toScaledString($balance), (string) $divider, $scale);
+
+        return (float) $normalized;
+    }
+
+    private function toScaledString(string|int|float $value): string
+    {
+        return bcadd((string) $value, '0', 4);
     }
 
     /**

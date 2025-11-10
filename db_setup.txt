@@ -1,5 +1,8 @@
 sudo apt install postgresql postgresql-contrib -y
 sudo systemctl status postgresql
+
+php -r "file_put_contents('/var/www/tg_w2b1_api/storage/logs/laravel.log', '');"
+
 CREATE DATABASE tg_slot;
 CREATE USER tg_db_user WITH PASSWORD 'tgdbslotpassword';
 GRANT ALL PRIVILEGES ON DATABASE tg_slot TO tg_db_user;
