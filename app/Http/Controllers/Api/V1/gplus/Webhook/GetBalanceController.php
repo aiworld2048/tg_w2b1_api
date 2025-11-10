@@ -72,7 +72,7 @@ class GetBalanceController extends Controller
                 $results[] = [
                     'member_account' => $req['member_account'],
                     'product_code' => $req['product_code'],
-                    'balance' => (float) $balance,
+                    'balance' => $balance,
                     'code' => \App\Enums\SeamlessWalletCode::Success->value,
                     'message' => 'Success',
                 ];
@@ -90,14 +90,12 @@ class GetBalanceController extends Controller
         return ApiResponseService::success($results);
     }
 
-    private function formatBalanceForResponse(string $balance, string $currency): float
+    private function formatBalanceForResponse(string $balance, string $currency): string
     {
         $divider = $this->getCurrencyValue($currency);
         $scale = in_array($currency, ['IDR2', 'KRW2', 'MMK2', 'VND2', 'LAK2', 'KHR2'], true) ? 4 : 2;
 
-        $normalized = bcdiv($balance, (string) $divider, $scale);
-
-        return (float) $normalized;
+        return bcdiv($balance, (string) $divider, $scale);
     }
 
     private function getCurrencyValue(string $currency): int|float

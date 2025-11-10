@@ -404,14 +404,12 @@ class WithdrawController extends Controller
         return $this->toScaledString($scaled);
     }
 
-    private function formatBalanceForResponse(string $balance, string $currency): float
+    private function formatBalanceForResponse(string $balance, string $currency): string
     {
         $divider = $this->getCurrencyValue($currency);
         $scale = in_array($currency, $this->specialCurrencies, true) ? 4 : 2;
 
-        $normalized = bcdiv($this->toScaledString($balance), (string) $divider, $scale);
-
-        return (float) $normalized;
+        return bcdiv($this->toScaledString($balance), (string) $divider, $scale);
     }
 
     private function toScaledString(string|int|float $value): string
