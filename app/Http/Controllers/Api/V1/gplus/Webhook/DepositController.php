@@ -361,12 +361,12 @@ class DepositController extends Controller
         return $this->toScaledString($scaled);
     }
 
-    private function formatBalanceForResponse(string $balance, string $currency): string
+    private function formatBalanceForResponse(string $balance, string $currency): float
     {
         $divider = $this->getCurrencyValue($currency);
         $scale = in_array($currency, $this->specialCurrencies, true) ? 4 : 2;
 
-        return bcdiv($this->toScaledString($balance), (string) $divider, $scale);
+        return (float) bcdiv($this->toScaledString($balance), (string) $divider, $scale);
     }
 
     private function toScaledString(string|int|float $value): string
