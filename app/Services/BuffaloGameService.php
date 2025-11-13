@@ -3,245 +3,237 @@
 namespace App\Services;
 
 use App\Models\User;
+use Illuminate\Support\Facades\Log;
 
 class BuffaloGameService
 {
     /**
-     * Site configuration - Updated for Production
-     * IMPORTANT: Must match the site_url in config/buffalo_sites.php
+     * Site configuration for TriBet
      */
-    private const SITE_NAME = 'https://ag.ponewine20x.xyz';
-
-    private const SITE_PREFIX = 'pwf';
-    // No secret key needed - API provider uses UUID + token format
+    private const SITE_NAME = 'maxwinmyanmar';
+    private const SITE_PREFIX = 'mwy';
+    private const SITE_URL = 'https://maxwinmyanmar.pro';
 
     /**
-     * Generate UUID (32 characters) for Buffalo API
+     * Generate UID (32 characters) for Buffalo API
      * Format: prefix(3) + base64_encoded_username(variable) + padding to 32 chars
      */
     public static function generateUid(string $userName): string
     {
         // Encode username to base64 (URL-safe)
         $encoded = rtrim(strtr(base64_encode($userName), '+/', '-_'), '=');
-
+        
         // Create a 32-character UID: prefix + encoded username + hash padding
-        $prefix = self::SITE_PREFIX; // 3 chars: "gam"
+        $prefix = self::SITE_PREFIX; // 3 chars: "6t"
         $remaining = 32 - strlen($prefix);
-
+        
         // If encoded username is longer than available space, use hash instead
         if (strlen($encoded) > $remaining - 10) {
-            $hash = md5($userName.self::SITE_NAME);
-
-            return $prefix.substr($hash, 0, $remaining);
+            $hash = md5($userName . self::SITE_URL);
+            return $prefix . substr($hash, 0, $remaining);
         }
-
+        
         // Pad with hash to reach 32 characters total
-        $padding = substr(md5($userName.self::SITE_NAME), 0, $remaining - strlen($encoded));
-
-        return $prefix.$encoded.$padding;
+        $padding = substr(md5($userName . self::SITE_URL), 0, $remaining - strlen($encoded));
+        return $prefix . $encoded . $padding;
     }
 
     /**
      * Generate token (64 characters) for Buffalo API
+     * Note: Buffalo provider doesn't use secret keys
      */
     public static function generateToken(string $uid): string
     {
         // Generate a 64-character token using SHA256
-        return hash('sha256', $uid.self::SITE_NAME.time());
+        return hash('sha256', $uid . self::SITE_URL . time());
     }
 
     /**
      * Generate persistent token for user (stored in database)
-     * Note: Only uses username for consistency (no user_id to allow verification without full user object)
      */
-    public static function generatePersistentToken(User $user): string
+    public static function generatePersistentToken(string $userName): string
     {
-        // Generate a persistent token that doesn't change with time
-        // Only use username (not user_id) so we can verify with just the username
-        return hash('sha256', $user->user_name.self::SITE_NAME.'buffalo-persistent-token');
+        // Generate persistent token using SHA256
+        $uniqueString = $userName . self::SITE_URL . 'buffalo-persistent-token';
+        return hash('sha256', $uniqueString);
     }
 
     /**
-     * Generate complete Buffalo authentication data for a user
+     * Verify token
      */
-    public static function generateBuffaloAuth(User $user): array
+    public static function verifyToken(string $uid, string $token): bool
     {
-        $uid = self::generateUid($user->user_name);
-        $token = self::generatePersistentToken($user); // Use persistent token
+        try {
+            // Extract username from UID
+            $userName = self::extractUserNameFromUid($uid);
+            
+            if (!$userName) {
+                Log::warning('TriBet Buffalo - Could not extract username from UID', [
+                    'uid' => $uid
+                ]);
+                return false;
+            }
 
-        return [
-            'uid' => $uid,
-            'token' => $token,
-        ];
+            // Find user
+            $user = User::where('user_name', $userName)->first();
+            
+            if (!$user) {
+                Log::warning('TriBet Buffalo - User not found for token verification', [
+                    'userName' => $userName
+                ]);
+                return false;
+            }
+
+            // Generate expected token
+            $expectedToken = self::generatePersistentToken($userName);
+
+            $isValid = hash_equals($expectedToken, $token);
+
+            if ($isValid) {
+                Log::info('TriBet Buffalo - Token verified successfully', [
+                    'user' => $userName
+                ]);
+            } else {
+                Log::warning('TriBet Buffalo - Token verification failed', [
+                    'user' => $userName,
+                    'expected' => substr($expectedToken, 0, 10) . '...',
+                    'received' => substr($token, 0, 10) . '...'
+                ]);
+            }
+
+            return $isValid;
+
+        } catch (\Exception $e) {
+            Log::error('TriBet Buffalo - Token verification error', [
+                'error' => $e->getMessage(),
+                'uid' => $uid
+            ]);
+            return false;
+        }
     }
 
     /**
-     * Extract user_name from Buffalo UID (32 characters)
+     * Extract username from UID
      */
     public static function extractUserNameFromUid(string $uid): ?string
     {
-        // Verify prefix
-        if (! str_starts_with($uid, self::SITE_PREFIX)) {
-            \Log::warning('Buffalo UID has invalid prefix', ['uid' => $uid]);
-
-            return null;
-        }
-
-        // Remove prefix (3 chars: "pwf")
-        $withoutPrefix = substr($uid, strlen(self::SITE_PREFIX));
-
-        // Try to extract encoded username by trying different lengths
-        // We know the format is: encodedUsername + hashPadding
-        // Try to find a valid base64 decoded username
-        for ($i = 1; $i <= strlen($withoutPrefix); $i++) {
-            $possibleEncoded = substr($withoutPrefix, 0, $i);
-
-            try {
-                // Decode from URL-safe base64
-                $decoded = base64_decode(strtr($possibleEncoded, '-_', '+/'));
-
-                // Check if decoded string is valid UTF-8 and not empty
-                if ($decoded && strlen($decoded) > 0 && mb_check_encoding($decoded, 'UTF-8')) {
-                    try {
-                        $user = \App\Models\User::where('user_name', $decoded)->first();
+        // Remove prefix (first 3 characters: "6t")
+        $uidWithoutPrefix = substr($uid, 3);
+        
+        // Try to decode the base64 encoded part
+        try {
+            // Find the encoded username part (before the hash padding)
+            for ($len = strlen($uidWithoutPrefix); $len >= 4; $len--) {
+                $encodedPart = substr($uidWithoutPrefix, 0, $len);
+                
+                // Add back padding if needed
+                $paddedEncoded = $encodedPart . str_repeat('=', (4 - strlen($encodedPart) % 4) % 4);
+                
+                // Try to decode
+                $decoded = base64_decode(strtr($paddedEncoded, '-_', '+/'), true);
+                
+                if ($decoded !== false) {
+                    // Clean the decoded string - remove any non-printable characters
+                    $cleaned = preg_replace('/[^\x20-\x7E]/', '', $decoded);
+                    
+                    if (!empty($cleaned)) {
+                        // Check if this username exists (use cleaned string)
+                        $user = User::where('user_name', $cleaned)->first();
                         if ($user) {
-                            // Verify by regenerating UID
-                            $regeneratedUid = self::generateUid($decoded);
-                            if ($regeneratedUid === $uid) {
-                                \Log::info('Buffalo UID extracted successfully', [
-                                    'uid' => $uid,
-                                    'username' => $decoded,
-                                ]);
-
-                                return $decoded;
-                            }
+                            return $cleaned;
                         }
-                    } catch (\Exception $dbError) {
-                        // Skip this decoded value if it causes DB error (invalid UTF-8)
-                        \Log::debug('Buffalo: Skipping invalid decoded value', [
-                            'decoded_hex' => bin2hex($decoded),
-                            'error' => $dbError->getMessage(),
-                        ]);
-
-                        continue;
                     }
                 }
-            } catch (\Exception $e) {
-                continue;
             }
+        } catch (\Exception $e) {
+            Log::warning('TriBet Buffalo - Failed to decode UID', [
+                'uid' => $uid,
+                'error' => $e->getMessage()
+            ]);
         }
 
-        // Fallback: search by regenerating UIDs for all users (limit to reasonable amount)
-        \Log::info('Buffalo UID extraction fallback to database search', ['uid' => $uid]);
-        $users = \App\Models\User::whereNotNull('user_name')
-            ->where('user_name', '!=', '')
-            ->limit(1000)
-            ->get();
-
-        foreach ($users as $user) {
-            $generatedUid = self::generateUid($user->user_name);
-            if ($generatedUid === $uid) {
-                \Log::info('Buffalo UID found via fallback', [
-                    'uid' => $uid,
-                    'username' => $user->user_name,
-                ]);
-
-                return $user->user_name;
+        // Fallback: Search by UID pattern in database
+        try {
+            $users = User::select('id', 'user_name')->get();
+            foreach ($users as $user) {
+                $generatedUid = self::generateUid($user->user_name);
+                if ($generatedUid === $uid) {
+                    return $user->user_name;
+                }
             }
+        } catch (\Exception $e) {
+            Log::error('TriBet Buffalo - Error in fallback UID search', [
+                'uid' => $uid,
+                'error' => $e->getMessage()
+            ]);
         }
-
-        \Log::error('Buffalo UID could not be matched to any user', ['uid' => $uid]);
 
         return null;
     }
 
     /**
-     * Verify token for Buffalo API (no secret key verification)
+     * Get game URL for user
      */
-    public static function verifyToken(string $uid, string $token): bool
+    public static function getGameUrl(User $user, int $roomId = 2): string
     {
-        // Find the user first
-        $userName = self::extractUserNameFromUid($uid);
+        $uid = self::generateUid($user->user_name);
+        $token = self::generatePersistentToken($user->user_name);
 
-        if (! $userName) {
-            \Log::warning('Buffalo token verification failed: Could not extract username from UID', [
-                'uid' => $uid,
-            ]);
+        $data = [
+            "gameId" => 23, // Buffalo game ID
+            "roomId" => $roomId,
+            "uid" => $uid,
+            "token" => $token,
+            "lobbyUrl" => self::SITE_URL,
+        ];
 
-            return false;
-        }
-
-        $user = \App\Models\User::where('user_name', $userName)->first();
-
-        if (! $user) {
-            \Log::warning('Buffalo token verification failed: User not found', [
-                'uid' => $uid,
-                'extracted_username' => $userName,
-            ]);
-
-            return false;
-        }
-
-        // Generate the expected token and compare
-        $expectedToken = self::generatePersistentToken($user);
-        $isValid = hash_equals($expectedToken, $token);
-
-        if (! $isValid) {
-            \Log::warning('Buffalo token verification failed: Token mismatch', [
-                'uid' => $uid,
-                'user_id' => $user->id,
-                'user_name' => $user->user_name,
-                'provided_token' => $token,
-                'expected_token' => $expectedToken,
-                'token_generation_string' => $user->user_name.self::SITE_NAME.'buffalo-persistent-token',
-            ]);
-        } else {
-            \Log::info('Buffalo token verified successfully', [
-                'uid' => $uid,
-                'user_name' => $user->user_name,
-            ]);
-        }
-
-        return $isValid;
+        $baseUrl = 'http://prime7.wlkfkskakdf.com/';
+        return $baseUrl . '?' . http_build_query($data);
     }
 
     /**
-     * Get site information
+     * Generate Buffalo authentication data
+     * Returns UID and Token for frontend
      */
-    public static function getSiteInfo(): array
+    
+
+    public static function generateBuffaloAuth(User $user): array
     {
+        $uid = self::generateUid($user->user_name);
+        $token = self::generatePersistentToken($user->user_name); // Pass username string, not User object
+
         return [
-            'site_name' => self::SITE_NAME,
-            'site_prefix' => self::SITE_PREFIX,
+            'uid' => $uid,
+            'token' => $token,
+            'user_name' => $user->user_name,
         ];
     }
 
     /**
-     * Generate Buffalo game URL (Exact format from provider)
-     * Based on provider examples: http://prime7.wlkfkskakdf.com/?gameId=23&roomId=1&uid=...&token=...&lobbyUrl=...
+     * Generate Buffalo game URL with lobby URL
      */
+    
+
     public static function generateGameUrl(User $user, int $roomId = 1, string $lobbyUrl = ''): string
     {
         // Use HTTP exactly as provider examples show
         $baseUrl = 'http://prime7.wlkfkskakdf.com/';
         $gameId = 23; // Buffalo game ID from provider examples
-
+        
         // Use provided lobby URL or default to production site
-        // $finalLobbyUrl = $lobbyUrl ?: 'https://africanbuffalo.vip';
-
-        $finalLobbyUrl = $lobbyUrl ?: 'https://m.ponewine20x.xyz';
-
+        // $finalLobbyUrl = $lobbyUrl ?: 'https://m.6tribet.net';
+         $finalLobbyUrl = $lobbyUrl ?: 'https://tg-slot-sawgyi.vercel.app';
+        
         // Generate the base URL without auth (auth will be added by controller)
-        $gameUrl = $baseUrl.'?gameId='.$gameId.
-                   '&roomId='.$roomId.
-                   '&lobbyUrl='.urlencode($finalLobbyUrl);
-
+        $gameUrl = $baseUrl . '?gameId=' . $gameId . 
+                   '&roomId=' . $roomId . 
+                   '&lobbyUrl=' . urlencode($finalLobbyUrl);
+        
         return $gameUrl;
     }
 
-    /**
-     * Get room configuration
-     */
+    
+
     public static function getRoomConfig(): array
     {
         return [
@@ -257,7 +249,7 @@ class BuffaloGameService
      */
     public static function getAvailableRooms(User $user): array
     {
-        $userBalance = $user->balanceFloat; // Use bavix wallet trait
+        $userBalance = $user->balance; // Use bavix wallet trait
         $rooms = self::getRoomConfig();
         $availableRooms = [];
 
@@ -269,4 +261,6 @@ class BuffaloGameService
 
         return $availableRooms;
     }
+
+    
 }

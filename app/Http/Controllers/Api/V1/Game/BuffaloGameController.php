@@ -5,27 +5,33 @@ namespace App\Http\Controllers\Api\V1\Game;
 use App\Enums\TransactionName;
 use App\Http\Controllers\Controller;
 use App\Models\User;
-use App\Services\BuffaloGameMultiSiteService;
-use App\Services\BuffaloGameService;
 use App\Services\WalletService;
+use App\Services\BuffaloGameService;
+use App\Models\LogBuffaloBet;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class BuffaloGameController extends Controller
 {
-    protected WalletService $WalletService;
+    protected WalletService $walletService;
 
-    public function __construct(WalletService $WalletService)
+    public function __construct(WalletService $walletService)
     {
-        $this->WalletService = $WalletService;
+        $this->walletService = $walletService;
     }
 
     /**
-     * Buffalo Game - Get User Balance (Multi-Site Support)
+     * Buffalo Game - Get User Balance
+     * Endpoint: POST /api/buffalo/get-user-balance
      */
     public function getUserBalance(Request $request)
     {
+        Log::info('6TriBet Buffalo getUserBalance - Request received', [
+            'request' => $request->all(),
+            'ip' => $request->ip()
+        ]);
+
         $request->validate([
             'uid' => 'required|string|max:50',
             'token' => 'required|string',
@@ -34,93 +40,66 @@ class BuffaloGameController extends Controller
         $uid = $request->uid;
         $token = $request->token;
 
-        // Extract site prefix
-        $prefix = BuffaloGameMultiSiteService::extractPrefix($uid);
-        $siteConfig = BuffaloGameMultiSiteService::getSiteConfig($prefix);
-
-        Log::info('Buffalo getUserBalance - Request received', [
-            'uid' => $uid,
-            'prefix' => $prefix,
-            'site' => $siteConfig['name'] ?? 'Unknown',
-        ]);
-
-        // Check if site exists and is enabled
-        if (! $siteConfig || ! $siteConfig['enabled']) {
-            Log::warning('Buffalo getUserBalance - Invalid or disabled site', [
-                'prefix' => $prefix,
-                'uid' => $uid,
-            ]);
-
-            return response()->json([
-                'code' => 0,
-                'msg' => 'Invalid site',
-            ]);
-        }
-
-        // Route based on site configuration
-        if ($siteConfig['is_local']) {
-            // Handle locally
-            return $this->handleLocalGetBalance($request, $uid, $token, $prefix);
-        } else {
-            // Forward to external API
-            return $this->forwardGetBalanceToExternalSite($request, $prefix);
-        }
-    }
-
-    /**
-     * Handle get balance for local site
-     */
-    private function handleLocalGetBalance(Request $request, string $uid, string $token, string $prefix)
-    {
         // Verify token
-        Log::info('Buffalo getUserBalance - Token verification attempt (Local)', [
+        Log::info('TG Saw GYI Buffalo - Token verification attempt', [
             'uid' => $uid,
-            'prefix' => $prefix,
+            'token' => $token
         ]);
-
-        if (! BuffaloGameMultiSiteService::verifyToken($uid, $token)) {
-            Log::warning('Buffalo getUserBalance - Token verification failed', [
+        
+        if (!BuffaloGameService::verifyToken($uid, $token)) {
+            Log::warning('TG Saw GYI Buffalo - Token verification failed', [
                 'uid' => $uid,
-                'token' => $token,
+                'token' => $token
             ]);
-
+            
             return response()->json([
                 'code' => 0,
                 'msg' => 'Invalid token',
             ]);
         }
-
-        Log::info('Buffalo getUserBalance - Token verification successful', [
-            'uid' => $uid,
+        
+        Log::info('TG Saw GYI Buffalo - Token verification successful', [
+            'uid' => $uid
         ]);
 
-        // Extract user_name from uid
-        $userName = BuffaloGameMultiSiteService::extractUserNameFromUid($uid, $prefix);
+        // Extract username from UID
+        $userName = BuffaloGameService::extractUserNameFromUid($uid);
 
-        // Lookup user by user_name
-        $user = User::where('user_name', $userName)->first();
-
-        if (! $user) {
-            Log::warning('Buffalo getUserBalance - User not found', [
-                'userName' => $userName,
-                'uid' => $uid,
+        if (!$userName) {
+            Log::warning('TG Saw GYI Buffalo - Could not extract username', [
+                'uid' => $uid
             ]);
+            
+            return response()->json([
+                'code' => 0,
+                'msg' => 'Invalid UID format',
+            ]);
+        }
 
+        // Find user by username
+        $user = User::where('user_name', $userName)->first();
+        
+        if (!$user) {
+            Log::warning('TG Saw GYI Buffalo - User not found', [
+                'userName' => $userName,
+                'uid' => $uid
+            ]);
+            
             return response()->json([
                 'code' => 0,
                 'msg' => 'User not found',
             ]);
         }
 
-        // Get balance using bavix wallet trait
-        $balance = $user->balanceFloat;
+        // Get balance (assuming you use bavix/laravel-wallet)
+        $balance = $user->balance;
 
-        Log::info('Buffalo getUserBalance - Success', [
+        Log::info('TG Saw GYI Buffalo - Balance retrieved successfully', [
             'user' => $userName,
-            'balance' => $balance,
+            'balance' => $balance
         ]);
 
-        // Return balance as integer (provider expects integer only)
+        // Return balance as integer (Buffalo provider expects integer only)
         return response()->json([
             'code' => 1,
             'msg' => 'Success',
@@ -129,71 +108,15 @@ class BuffaloGameController extends Controller
     }
 
     /**
-     * Forward get balance request to external site
-     */
-    private function forwardGetBalanceToExternalSite(Request $request, string $prefix)
-    {
-        $externalApiUrl = BuffaloGameMultiSiteService::getExternalApiUrl($prefix, 'get_balance');
-
-        if (! $externalApiUrl) {
-            Log::error('Buffalo getUserBalance - External API URL not configured', [
-                'prefix' => $prefix,
-            ]);
-
-            return response()->json([
-                'code' => 0,
-                'msg' => 'Site configuration error',
-            ]);
-        }
-
-        Log::info('Buffalo getUserBalance - Forwarding to external site', [
-            'prefix' => $prefix,
-            'external_url' => $externalApiUrl,
-        ]);
-
-        try {
-            $response = Http::timeout(10)->post($externalApiUrl, $request->all());
-
-            if ($response->successful()) {
-                Log::info('Buffalo getUserBalance - External API success', [
-                    'prefix' => $prefix,
-                    'response' => $response->json(),
-                ]);
-
-                return response()->json($response->json(), 200);
-            } else {
-                Log::error('Buffalo getUserBalance - External API failed', [
-                    'prefix' => $prefix,
-                    'status' => $response->status(),
-                    'response' => $response->body(),
-                ]);
-
-                return response()->json([
-                    'code' => 0,
-                    'msg' => 'External API error',
-                ], $response->status());
-            }
-        } catch (\Exception $e) {
-            Log::error('Buffalo getUserBalance - External API exception', [
-                'prefix' => $prefix,
-                'error' => $e->getMessage(),
-            ]);
-
-            return response()->json([
-                'code' => 0,
-                'msg' => 'Connection error',
-            ], 500);
-        }
-    }
-
-    /**
-     * Buffalo Game - Change Balance (Bet/Win) - Multi-Site Support
+     * Buffalo Game - Change Balance (Bet/Win)
+     * Endpoint: POST /api/buffalo/change-balance
      */
     public function changeBalance(Request $request)
     {
-        Log::info('Buffalo changeBalance - Request received', [
-            'request' => $request->all(),
-        ]);
+        // Log::info('6TriBet Buffalo changeBalance - Request received', [
+        //     'request' => $request->all(),
+        //     'ip' => $request->ip()
+        // ]);
 
         $request->validate([
             'uid' => 'required|string|max:50',
@@ -207,161 +130,134 @@ class BuffaloGameController extends Controller
         $uid = $request->uid;
         $token = $request->token;
 
-        // Extract site prefix
-        $prefix = BuffaloGameMultiSiteService::extractPrefix($uid);
-        $siteConfig = BuffaloGameMultiSiteService::getSiteConfig($prefix);
-
-        Log::info('Buffalo changeBalance - Site detected', [
-            'uid' => $uid,
-            'prefix' => $prefix,
-            'site' => $siteConfig['name'] ?? 'Unknown',
-        ]);
-
-        // Check if site exists and is enabled
-        if (! $siteConfig || ! $siteConfig['enabled']) {
-            Log::warning('Buffalo changeBalance - Invalid or disabled site', [
-                'prefix' => $prefix,
-                'uid' => $uid,
-            ]);
-
-            return response()->json([
-                'code' => 0,
-                'msg' => 'Invalid site',
-            ]);
-        }
-
-        // Route based on site configuration
-        if ($siteConfig['is_local']) {
-            // Handle locally
-            return $this->handleLocalChangeBalance($request, $uid, $token, $prefix);
-        } else {
-            // Forward to external API
-            return $this->forwardChangeBalanceToExternalSite($request, $prefix);
-        }
-    }
-
-    /**
-     * Handle change balance for local site
-     */
-    private function handleLocalChangeBalance(Request $request, string $uid, string $token, string $prefix)
-    {
         // Verify token
-        Log::info('Buffalo changeBalance - Token verification attempt (Local)', [
+        Log::info('TG Saw GYI Buffalo - Token verification attempt', [
             'uid' => $uid,
-            'prefix' => $prefix,
+            'token' => $token
         ]);
-
-        if (! BuffaloGameMultiSiteService::verifyToken($uid, $token)) {
-            Log::warning('Buffalo changeBalance - Token verification failed', [
+        
+        if (!BuffaloGameService::verifyToken($uid, $token)) {
+            Log::warning('TG Saw GYI Buffalo - Token verification failed', [
                 'uid' => $uid,
-                'token' => $token,
+                'token' => $token
             ]);
-
+            
             return response()->json([
                 'code' => 0,
                 'msg' => 'Invalid token',
             ]);
         }
-
-        Log::info('Buffalo changeBalance - Token verification successful', [
-            'uid' => $uid,
+        
+        Log::info('TG Saw GYI Buffalo - Token verification successful', [
+            'uid' => $uid
         ]);
 
-        // Extract user_name from uid
-        $userName = BuffaloGameMultiSiteService::extractUserNameFromUid($uid, $prefix);
+        // Extract username from UID
+        $userName = BuffaloGameService::extractUserNameFromUid($uid);
 
-        // Lookup user by user_name
-        $user = User::where('user_name', $userName)->first();
-
-        if (! $user) {
-            Log::warning('Buffalo changeBalance - User not found', [
-                'userName' => $userName,
-                'uid' => $uid,
+        if (!$userName) {
+            Log::warning('TG Saw GYI Buffalo - Could not extract username', [
+                'uid' => $uid
             ]);
+            
+            return response()->json([
+                'code' => 0,
+                'msg' => 'Invalid UID format',
+            ]);
+        }
 
+        // Find user
+        $user = User::where('user_name', $userName)->first();
+        
+        if (!$user) {
+            Log::warning('TG Saw GYI Buffalo - User not found', [
+                'userName' => $userName,
+                'uid' => $uid
+            ]);
+            
             return response()->json([
                 'code' => 0,
                 'msg' => 'User not found',
             ]);
         }
 
-        // ✅ Use amounts directly (provider expects integer values)
-        $changeAmount = (int) $request->changemoney; // Convert to integer
-        $betAmount = abs((int) $request->bet);       // Convert to integer
-        $winAmount = (int) $request->win;            // Convert to integer
+        // Get amounts
+        $changeAmount = (int) $request->changemoney;
+        $betAmount = abs((int) $request->bet);
+        $winAmount = (int) $request->win;
 
-        Log::info('Buffalo Game Transaction', [
+        Log::info('TG Saw GYI Buffalo - Processing transaction', [
             'user_name' => $user->user_name,
             'user_id' => $user->id,
             'change_amount' => $changeAmount,
             'bet_amount' => $betAmount,
             'win_amount' => $winAmount,
-            'game_id' => $request->gameId,
-            'original_request' => $request->all(),
+            'game_id' => $request->gameId
         ]);
 
         try {
-            // ✅ Handle different transaction types
+            DB::beginTransaction();
+
+            // Handle transaction
             if ($changeAmount > 0) {
                 // Win/Deposit transaction
-                $success = $this->WalletService->deposit(
+                $success = $this->walletService->deposit(
                     $user,
                     $changeAmount,
                     TransactionName::GameWin,
                     [
-                        'buffalo_game_id' => $request->gameId, // Provider confirmed: integer
+                        'buffalo_game_id' => $request->gameId,
                         'bet_amount' => $betAmount,
                         'win_amount' => $winAmount,
                         'provider' => 'buffalo',
-                        'transaction_type' => 'game_win',
+                        'transaction_type' => 'game_win'
                     ]
                 );
             } else {
                 // Loss/Withdraw transaction
-                $success = $this->WalletService->withdraw(
+                $success = $this->walletService->withdraw(
                     $user,
                     abs($changeAmount),
                     TransactionName::GameLoss,
                     [
-                        'buffalo_game_id' => $request->gameId, // Provider confirmed: integer
+                        'buffalo_game_id' => $request->gameId,
                         'bet_amount' => $betAmount,
                         'win_amount' => $winAmount,
                         'provider' => 'buffalo',
-                        'transaction_type' => 'game_loss',
+                        'transaction_type' => 'game_loss'
                     ]
                 );
             }
 
-            if (! $success) {
-                Log::error('Buffalo Game - Wallet transaction failed', [
+            if (!$success) {
+                DB::rollBack();
+                
+                Log::error('TG Saw GYI Buffalo - Wallet transaction failed', [
                     'user_id' => $user->id,
                     'user_name' => $user->user_name,
-                    'change_amount' => $changeAmount,
-                    'bet_amount' => $betAmount,
-                    'win_amount' => $winAmount,
-                    'game_id' => $request->gameId,
-                    'transaction_type' => $changeAmount > 0 ? 'deposit' : 'withdraw',
+                    'change_amount' => $changeAmount
                 ]);
-
+                
                 return response()->json([
                     'code' => 0,
                     'msg' => 'Transaction failed',
                 ]);
             }
 
-            // ✅ Refresh user model to get updated balance
+            // Refresh user model
             $user->refresh();
 
-            Log::info('Buffalo Game - Wallet transaction successful', [
+            Log::info('TG Saw GYI Buffalo - Transaction successful', [
                 'user_id' => $user->id,
                 'user_name' => $user->user_name,
                 'change_amount' => $changeAmount,
-                'new_balance' => $user->balanceFloat,
-                'transaction_type' => $changeAmount > 0 ? 'deposit' : 'withdraw',
+                'new_balance' => $user->balanceFloat
             ]);
 
-            // ✅ Log the bet data for reporting
+            // Log the bet
             $this->logBuffaloBet($user, $request->all());
+
+            DB::commit();
 
             return response()->json([
                 'code' => 1,
@@ -369,75 +265,52 @@ class BuffaloGameController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Buffalo Game Transaction Error', [
+            DB::rollBack();
+            
+            Log::error('TG Saw GYI Buffalo - Transaction error', [
                 'user_name' => $user->user_name,
                 'error' => $e->getMessage(),
-                'request' => $request->all(),
+                'trace' => $e->getTraceAsString()
             ]);
 
             return response()->json([
                 'code' => 0,
-                'msg' => 'Transaction failed: '.$e->getMessage(),
+                'msg' => 'Transaction failed: ' . $e->getMessage(),
             ]);
         }
     }
 
     /**
-     * Forward change balance request to external site
+     * Log Buffalo bet for reporting
      */
-    private function forwardChangeBalanceToExternalSite(Request $request, string $prefix)
+    private function logBuffaloBet(User $user, array $requestData): void
     {
-        $externalApiUrl = BuffaloGameMultiSiteService::getExternalApiUrl($prefix, 'change_balance');
-
-        if (! $externalApiUrl) {
-            Log::error('Buffalo changeBalance - External API URL not configured', [
-                'prefix' => $prefix,
-            ]);
-
-            return response()->json([
-                'code' => 0,
-                'msg' => 'Site configuration error',
-            ]);
-        }
-
-        Log::info('Buffalo changeBalance - Forwarding to external site', [
-            'prefix' => $prefix,
-            'external_url' => $externalApiUrl,
-            'request_data' => $request->all(),
-        ]);
-
         try {
-            $response = Http::timeout(10)->post($externalApiUrl, $request->all());
-
-            if ($response->successful()) {
-                Log::info('Buffalo changeBalance - External API success', [
-                    'prefix' => $prefix,
-                    'response' => $response->json(),
-                ]);
-
-                return response()->json($response->json(), 200);
-            } else {
-                Log::error('Buffalo changeBalance - External API failed', [
-                    'prefix' => $prefix,
-                    'status' => $response->status(),
-                    'response' => $response->body(),
-                ]);
-
-                return response()->json([
-                    'code' => 0,
-                    'msg' => 'External API error',
-                ], $response->status());
-            }
-        } catch (\Exception $e) {
-            Log::error('Buffalo changeBalance - External API exception', [
-                'prefix' => $prefix,
-                'error' => $e->getMessage(),
+            LogBuffaloBet::create([
+                'member_account' => $user->user_name,
+                'player_id' => $user->id,
+                'player_agent_id' => $user->agent_id,
+                'buffalo_game_id' => $requestData['gameId'] ?? null,
+                'request_time' => now(),
+                'bet_amount' => abs((int) $requestData['bet']),
+                'win_amount' => (int) $requestData['win'],
+                'payload' => $requestData,
+                'game_name' => 'Buffalo Game',
+                'status' => 'completed',
+                'before_balance' => $user->balanceFloat - ($requestData['changemoney'] ?? 0),
+                'balance' => $user->balanceFloat,
             ]);
 
-            return response()->json([
-                'code' => 0,
-                'msg' => 'Connection error',
-            ], 500);
+            Log::info('TG Saw GYI Buffalo - Bet logged successfully', [
+                'user' => $user->user_name,
+                'game_id' => $requestData['gameId']
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('TG Saw GYI Buffalo - Failed to log bet', [
+                'error' => $e->getMessage(),
+                'user' => $user->user_name
+            ]);
         }
     }
 
@@ -447,8 +320,8 @@ class BuffaloGameController extends Controller
     public function generateGameAuth(Request $request)
     {
         $user = auth()->user();
-
-        if (! $user) {
+        
+        if (!$user) {
             return response()->json([
                 'code' => 0,
                 'msg' => 'User not authenticated',
@@ -466,7 +339,7 @@ class BuffaloGameController extends Controller
                 'auth' => $auth,
                 'available_rooms' => $availableRooms,
                 'all_rooms' => $roomConfig,
-                'user_balance' => $user->balanceFloat,
+                'user_balance' => $user->balance,
             ],
         ]);
     }
@@ -482,8 +355,8 @@ class BuffaloGameController extends Controller
         ]);
 
         $user = auth()->user();
-
-        if (! $user) {
+        
+        if (!$user) {
             return response()->json([
                 'code' => 0,
                 'msg' => 'User not authenticated',
@@ -495,8 +368,8 @@ class BuffaloGameController extends Controller
 
         // Check if user has sufficient balance for the room
         $availableRooms = BuffaloGameService::getAvailableRooms($user);
-
-        if (! isset($availableRooms[$roomId])) {
+        
+        if (!isset($availableRooms[$roomId])) {
             return response()->json([
                 'code' => 0,
                 'msg' => 'Insufficient balance for selected room',
@@ -516,37 +389,6 @@ class BuffaloGameController extends Controller
     }
 
     /**
-     * Log Buffalo bet for reporting
-     */
-    private function logBuffaloBet(User $user, array $requestData): void
-    {
-        try {
-            // ✅ Use LogBuffaloBet model with correct fields
-            \App\Models\LogBuffaloBet::create([
-                'member_account' => $user->user_name,
-                'player_id' => $user->id,
-                'player_agent_id' => $user->agent_id,
-                'buffalo_game_id' => $requestData['gameId'], // Provider confirmed: integer
-                'request_time' => now(),
-                'bet_amount' => abs((int) $requestData['bet']), // Convert to integer
-                'win_amount' => (int) $requestData['win'],      // Convert to integer
-                'payload' => $requestData, // Store full request data
-                'game_name' => 'Buffalo Slot Game',
-                'status' => 'completed',
-                'before_balance' => $user->balanceFloat - $requestData['changemoney'],
-                'balance' => $user->balanceFloat,
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Failed to log Buffalo bet', [
-                'user_id' => $user->id,
-                'error' => $e->getMessage(),
-                'request_data' => $requestData,
-            ]);
-        }
-    }
-
-    /**
      * Buffalo Game - Launch Game (Frontend Integration)
      * Compatible with existing frontend LaunchGame hook
      */
@@ -560,8 +402,8 @@ class BuffaloGameController extends Controller
         ]);
 
         $user = $request->user();
-
-        if (! $user) {
+        
+        if (!$user) {
             return response()->json([
                 'code' => 0,
                 'msg' => 'User not authenticated',
@@ -573,60 +415,61 @@ class BuffaloGameController extends Controller
             if ($request->provider_id === 23) { // Assuming 23 is Buffalo provider ID
                 // Generate Buffalo game authentication
                 $auth = BuffaloGameService::generateBuffaloAuth($user);
-
+                
                 // Get room configuration
                 $roomId = $request->room_id ?? 1; // Default to room 1
                 $availableRooms = BuffaloGameService::getAvailableRooms($user);
-
+                
                 // Check if requested room is available for user's balance
-                if (! isset($availableRooms[$roomId])) {
+                if (!isset($availableRooms[$roomId])) {
                     return response()->json([
                         'code' => 0,
                         'msg' => 'Room not available for your balance level',
                     ]);
                 }
-
+                
                 $roomConfig = $availableRooms[$roomId];
-
+                
                 // Generate Buffalo game URL (Production - HTTP as per provider format)
-                // $lobbyUrl = 'https://africanbuffalo.vip';
-                $lobbyUrl = 'https://m.ponewine20x.xyz';
+                //$lobbyUrl = 'https://m.6tribet.net';
+                $lobbyUrl = 'https://tg-slot-sawgyi.vercel.app';
+
                 $gameUrl = BuffaloGameService::generateGameUrl($user, $roomId, $lobbyUrl);
-
+                
                 // Add UID and token to the URL (exact provider format)
-                $gameUrl .= '&uid='.$auth['uid'].'&token='.$auth['token'];
-
-                Log::info('Buffalo Game Launch', [
+                $gameUrl .= '&uid=' . $auth['uid'] . '&token=' . $auth['token'];
+                
+                Log::info('TG Saw GYI Buffalo Game Launch', [
                     'user_id' => $user->id,
                     'user_name' => $user->user_name,
                     'room_id' => $roomId,
                     'game_url' => $gameUrl,
-                    'auth_data' => $auth,
+                    'auth_data' => $auth
                 ]);
-
+                
                 return response()->json([
                     'code' => 1,
                     'msg' => 'Game launched successfully',
                     'Url' => $gameUrl, // Compatible with existing frontend
                     'game_url' => $gameUrl, // HTTP URL (exact provider format)
                     'room_info' => $roomConfig,
-                    'user_balance' => $user->balanceFloat,
+                    'user_balance' => $user->balance,
                 ]);
             }
-
+            
             // For non-Buffalo games, you can add other provider logic here
             return response()->json([
                 'code' => 0,
                 'msg' => 'Game provider not supported',
             ]);
-
+            
         } catch (\Exception $e) {
-            Log::error('Buffalo Game Launch Error', [
+            Log::error('6TriBet Buffalo Game Launch Error', [
                 'user_id' => $user->id,
                 'error' => $e->getMessage(),
-                'request_data' => $request->all(),
+                'request_data' => $request->all()
             ]);
-
+            
             return response()->json([
                 'code' => 0,
                 'msg' => 'Failed to launch game',
